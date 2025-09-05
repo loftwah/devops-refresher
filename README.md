@@ -1,11 +1,12 @@
 # Loftwah's DevOps Refresher
 
-## 1. Coding (LeetCode)
+## 1. Coding (LeetCode / Interview Prep)
 
 ### How to Work
 
 - For each problem solved:
-  - Code solution in Ruby or Go
+
+  - Code solution in Ruby, Go, or Python
   - Add time and space complexity analysis
   - Write a short "pattern takeaway"
   - Store in `leetcode/<category>/<problem>.md`
@@ -84,8 +85,9 @@
 
 - Each scenario gets a Markdown doc in `system-design/`
 - Include:
+
   - Assumptions (traffic, scale, SLAs)
-  - Architecture diagram (draw.io / Excalidraw / ASCII)
+  - Architecture diagram (Mermaid)
   - Component choices and tradeoffs
   - Risks and mitigations
 
@@ -97,9 +99,12 @@
 - Database scaling: sharding, replication, indexing
 - Storage design: object store, block storage, distributed file systems
 - API design: REST, GraphQL, gRPC
-- Authentication and authorisation
+- Authentication & authorisation: SSO, OIDC, SAML (concepts)
 - TLS and certificate management
 - Secrets management
+- Multi-account AWS organisation design
+- Multi-region and DR planning
+- VMware & virtualisation basics (concepts, trivia only)
 
 ### Practice Scenarios
 
@@ -112,6 +117,20 @@
 - Payment system (idempotency, retries, consistency)
 - Metrics and monitoring pipeline
 - CI/CD pipeline design at scale
+- Backup & recovery workflows
+- AI/ML: spam detection or vector search with RAG
+
+### Example Mermaid Diagram
+
+```mermaid
+graph TD
+  User --> LB[Load Balancer]
+  LB --> ECS[ECS Service]
+  ECS --> RDS[(Postgres RDS)]
+  ECS --> Redis[(ElastiCache Redis)]
+  ECS --> S3[(S3 Bucket)]
+  S3 --> CF[CloudFront CDN]
+```
 
 ### Tradeoffs
 
@@ -129,8 +148,9 @@
 
 - Each lab in `aws-labs/<lab-name>/`
 - Deliverables:
+
   - `README.md` with Objective, Steps, Expected Outcome, Cleanup
-  - Terraform or CloudFormation templates
+  - Terraform templates
   - Screenshots or CLI outputs proving success
   - Notes on what failed or broke
 
@@ -151,6 +171,9 @@
 - IAM: policies, roles, permission boundaries
 - KMS: encrypt/decrypt flow
 - Secrets Manager vs SSM Parameter Store
+- Route 53: failover, latency-based routing, weighted routing
+- Certificate Manager lifecycle (request, validate, renew)
+- GuardDuty, SecurityHub, Inspector (concepts + trial runs)
 
 ### Storage and Database Labs
 
@@ -158,12 +181,14 @@
 - RDS: multi-AZ failover, read replicas
 - DynamoDB: GSIs, LSIs, streams
 - ElastiCache: Redis failover drill
+- Backup & restore: S3 and RDS snapshots
 
 ### Observability Labs
 
 - CloudWatch: logs, metrics, dashboards, alarms
 - CloudTrail: track IAM events
 - X-Ray: trace Lambda or API Gateway app
+- External monitoring: Pingdom or similar
 
 ### CI/CD and Infra Labs
 
@@ -171,6 +196,7 @@
 - GitHub Actions → EKS deploy with kubectl/Helm
 - Blue/green and canary deployment demos
 - Terraform basics for each of the above
+- Policy-as-code with OPA/Conftest (terraform validate)
 
 ---
 
@@ -181,7 +207,7 @@
 - Each demo is a directory in `aws-labs/demo-apps/`
 - Includes `README.md`, Terraform, Dockerfile, and app code
 
-1. Rails or Go API → ECS Fargate
+1. Rails, Go, or Python API → ECS Fargate
 
    - Push image to ECR
    - Deploy service behind ALB
@@ -207,10 +233,17 @@
    - Blue/green and canary demos
 
 5. Monitoring and Security
+
    - CloudWatch dashboards
    - SNS alerts
    - KMS encryption for data
    - Secrets Manager rotation
+   - GuardDuty alerts
+
+6. AI/ML Demo
+
+   - Simple spam detection with GPT API or Lambda
+   - Optional RAG pipeline using DynamoDB/vector DB
 
 ---
 
@@ -222,6 +255,9 @@ Deliverables: notes and test commands
 
 - netstat, lsof, tcpdump, strace
 - Debugging CPU, memory, IO issues
+- Packet analysis (tcpdump, Wireshark basics)
+- VMware/virtualisation trivia
+- Networking trivia (subnets, VLANs, OSPF, BGP basics)
 
 ### Git
 
@@ -229,6 +265,11 @@ Deliverables: Git repo with branches demonstrating each
 
 - Rebase, cherry-pick, bisect
 - Submodules, hooks
+- Reflog and recovery
+- Rewriting history (filter-branch, BFG)
+- Advanced GitHub Actions workflows (matrix builds, reusable workflows)
+- Monorepo strategies
+- GitOps concepts (Flux, ArgoCD — concepts only)
 
 ### Resilience and Operations
 
@@ -237,3 +278,5 @@ Deliverables: markdown writeups of what happened
 - Chaos testing: kill pods or instances
 - DR strategy document
 - Backup and restore workflow test
+- Compliance checklist (CIS AWS Benchmark, security scans)
+- Cross-region failover drills
