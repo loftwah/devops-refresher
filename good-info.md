@@ -56,3 +56,8 @@ Notes:
 - You do not need to list extensions; Prettier detects and formats only supported file types.
 - Use globs only when you want to target a subset of files (e.g., `"src/**/*.ts"`). Quote globs to avoid shell expansion.
 - Add other folders to `.prettierignore` to exclude them (e.g., `dist/`, `coverage/`).
+
+Troubleshooting:
+- Directories are recursive: `npx prettier --write guide` walks `guide/` and subfolders.
+- If you see “No files matching the pattern…”, then either the path is wrong relative to CWD, all files are ignored by `.prettierignore`/`--ignore-path`, or there are no Prettier‑supported files in that folder.
+- Target a known type explicitly if needed, e.g. Markdown: `npx prettier --write "guide/**/*.md"`.
