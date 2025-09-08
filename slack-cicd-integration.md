@@ -99,6 +99,7 @@ Optional supporting infra: VPC/subnets/security groups if Lambda runs in VPC (no
   - SSM: `ssm:GetParameter`, `ssm:GetParameters` (limit to exact parameter paths).
   - KMS (if SecureString with CMK): `kms:Decrypt` on the key.
   - Networking (if in VPC): `ec2:CreateNetworkInterface`, `ec2:Describe*`, `ec2:DeleteNetworkInterface`.
+  - SNS topic policy: include a `Condition` to restrict `sns:Publish` to your account via `aws:SourceAccount`.
 
 ## Lambda Message Formatting (Behavior)
 
@@ -133,7 +134,7 @@ Error handling:
   - `target { type = "SNS", address = <sns_topic_arn> }`.
   - `detail_type` = `FULL` for richer payloads.
 - `aws_sns_topic` and `aws_sns_topic_policy`:
-  - Policy statement principal: `codestar-notifications.amazonaws.com`.
+  - Policy statement principal: `codestar-notifications.amazonaws.com` with `Condition.StringEquals = { "aws:SourceAccount" = <your_account_id> }`.
 - `aws_sns_topic_subscription`:
   - `protocol = "lambda"`, `endpoint = <lambda_arn>`.
 - `aws_lambda_function`:
@@ -241,7 +242,8 @@ resource "aws_iam_role_policy" "lambda_exec_inline" {
     Version = "2012-10-17",
     Statement = [
       { Effect = "Allow", Action = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"], Resource = "*" },
-      { Effect = "Allow", Action = ["ssm:GetParameter", "ssm:GetParameters"], Resource = "*" }
+      # Scope SSM access to exactly your webhook parameter ARN (replace region/account/env)
+      { Effect = "Allow", Action = ["ssm:GetParameter", "ssm:GetParameters"], Resource = "arn:aws:ssm:us-east-1:123456789012:parameter/*/loftwah/slack/webhook_url" }
     ]
   })
 }
@@ -308,9 +310,9 @@ How it formats (high level):
 
 How it talks to Slack:
 
-- Reads `SLACK_WEBHOOK_URL` from Lambda environment variables.
-- Builds a Slack Blocks payload and `POST`s JSON to the webhook via the `requests` library.
-- Logs the outbound payload and Slack’s HTTP response for troubleshooting.
+- Reads `SLACK_WEBHOOK_URL` from env vars, or optionally fetches from SSM (`SLACK_WEBHOOK_URL_SSM_PARAM`).
+- Uses a shared `requests.Session()` and `json=` to POST the Blocks payload to the webhook.
+- Handles `429` rate limits with short backoff; logs request/response for troubleshooting.
 
 Configuration used by the code:
 
@@ -325,7 +327,8 @@ Dependencies and packaging:
 
 Errors and retries:
 
-- Slack 4xx responses are logged and returned as 500 from the handler; SNS/Lambda will retry on some failures. Consider a small backoff if you see 429s (rate limits).
+- Slack 4xx responses are logged and returned as 500; SNS/Lambda may retry transient errors.
+- Implement a small backoff on `429 Too Many Requests`; keep messages concise to avoid Slack block limits.
 - A DLQ is configured; repeated failures land in SQS for later inspection.
 
 Extending the formatter (examples):
@@ -341,13 +344,33 @@ Python — trimmed for clarity (full source lives at `staging/cicd/lambda-slack-
 Handler (entry point):
 
 ```python
-import json, os, logging, requests
+import json, os, time, logging, requests, boto3
 from datetime import datetime
 
-SLACK_WEBHOOK_URL = os.environ.get('SLACK_WEBHOOK_URL')
+session = requests.Session()
+
+def _get_webhook():
+    name = os.environ.get('SLACK_WEBHOOK_URL_SSM_PARAM')
+    if name:
+        ssm = boto3.client('ssm')
+        p = ssm.get_parameter(Name=name, WithDecryption=True)
+        return p['Parameter']['Value']
+    return os.environ.get('SLACK_WEBHOOK_URL')
+
+SLACK_WEBHOOK_URL = _get_webhook()
 ENVIRONMENT = os.environ.get('ENVIRONMENT', 'unknown')
 logger = logging.getLogger()
 logger.setLevel(os.environ.get('LOG_LEVEL', 'INFO').upper())
+
+def _post_to_slack(payload):
+    for attempt in range(3):
+        resp = session.post(SLACK_WEBHOOK_URL, json=payload, timeout=10)
+        if resp.status_code == 429:
+            time.sleep(min(int(resp.headers.get('Retry-After', '1')), 5))
+            continue
+        resp.raise_for_status()
+        return
+    resp.raise_for_status()
 
 def lambda_handler(event, context):
     logger.info(f"Received event: {json.dumps(event)}")
@@ -369,13 +392,7 @@ def lambda_handler(event, context):
             ]
         }
 
-        resp = requests.post(
-            SLACK_WEBHOOK_URL,
-            data=json.dumps(slack_payload),
-            headers={"Content-Type": "application/json"},
-            timeout=10,
-        )
-        resp.raise_for_status()
+        _post_to_slack(slack_payload)
         return {"statusCode": 200, "body": json.dumps({"message": "ok"})}
     except Exception as e:
         logger.error(f"Notify error: {e}", exc_info=True)
@@ -492,11 +509,13 @@ resource "aws_sns_topic_policy" "allow_codestar" {
       Effect = "Allow",
       Principal = { Service = "codestar-notifications.amazonaws.com" },
       Action = "sns:Publish",
-      Resource = aws_sns_topic.build_notifications.arn
+      Resource = aws_sns_topic.build_notifications.arn,
+      Condition = { StringEquals = { "aws:SourceAccount" = data.aws_caller_identity.current.account_id } }
     }]
   })
 }
 
+data "aws_caller_identity" "current" {}
 resource "aws_lambda_permission" "allow_sns" {
   statement_id  = "AllowExecutionFromSNS"
   action        = "lambda:InvokeFunction"
@@ -509,6 +528,10 @@ resource "aws_sns_topic_subscription" "lambda" {
   topic_arn = aws_sns_topic.build_notifications.arn
   protocol  = "lambda"
   endpoint  = aws_lambda_function.slack_notifier.arn
+
+  # Optional filter to reduce noise and Lambda invocations
+  filter_policy       = jsonencode({ state = ["FAILED", "SUCCEEDED"] })
+  filter_policy_scope = "MessageBody"
 }
 
 # Point CodeStar Notifications for a pipeline at the SNS topic
@@ -540,6 +563,11 @@ Repo specifics (staging):
   - `aws_lambda_permission` allowing `sns.amazonaws.com` from that topic ARN.
   - `aws_sns_topic_subscription` with `protocol = "lambda"` and `endpoint = <lambda_arn>`.
 - Notification rules live alongside each pipeline/build config (`codepipeline.tf` / `codebuild.tf`). They point at the app’s SNS topic and select event types (failed/succeeded/started).
+
+### Optional: SNS Filter Policies
+
+- Apply an SNS filter policy on the Lambda subscription to invoke only for certain states (e.g., `FAILED`, `SUCCEEDED`) or specific pipelines.
+- Use `filter_policy_scope = "MessageBody"` to match on fields from the CodeStar message body (for example, `detail.state`).
 
 ## Rebuild Checklist
 
@@ -601,6 +629,7 @@ Repo‑specific rebuild steps (staging):
 - Least privilege on SNS topic policies: scope `sns:Publish` to the exact CodeStar Notifications service principal and your account.
 - Principle of least privilege for Lambda role: limit SSM/KMS permissions to specific parameters/keys if you adopt SSM.
 - Logs may include event summaries and Slack responses; ensure log retention is appropriate for your environment.
+- If the SNS topic is KMS‑encrypted, update the KMS key policy to allow CodeStar Notifications to publish and Lambda to read (principal `codestar-notifications.amazonaws.com` and your account).
 
 ## Operations and Troubleshooting
 
@@ -611,6 +640,7 @@ Repo‑specific rebuild steps (staging):
 - Repeated failures:
   - Slack 4xx indicates payload issues; log payload and reason.
   - Consider a Lambda DLQ and alerting via CloudWatch Alarm.
+  - `429 Too Many Requests`: Slack is rate‑limiting; the handler’s short backoff helps. Consider SNS filter policies or batching to reduce message volume.
 - Rotating secrets:
   - Update SSM SecureString; no Lambda redeploy needed if it reads per‑invocation or on cache expiry.
   - If using TF var for the webhook URL, rotate the value out‑of‑band and re‑apply (do not commit secrets).
