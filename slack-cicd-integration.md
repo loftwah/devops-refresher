@@ -19,7 +19,7 @@ Short version: CodePipeline/CodeBuild events → CodeStar Notifications → SNS 
 - Processor: A Python Lambda subscribed to the SNS topic, formats messages and posts to Slack.
 - Secret/config: Slack webhook URL provided to the Lambda via env var (or SSM, if you prefer).
 
-## Where (In This Repo)
+## Where (In Your Repo)
 
 - Lambda code and packaging (staging):
   - Python entrypoint: `staging/cicd/lambda-slack-notifier/src/slack_notifier.py:1`
