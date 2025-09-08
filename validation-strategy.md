@@ -9,7 +9,7 @@
 ## State Hygiene
 
 - Separate state per environment (and optionally per domain: `network`, `ecs`, `cicd`).
-- Lock with DynamoDB; never disable locking.
+- Lock state: backend lockfile (Terraform v1.13+) or DynamoDB on older TF; never disable locking.
 - Enable S3 versioning and MFA delete where appropriate.
 
 ## Imports & Drift

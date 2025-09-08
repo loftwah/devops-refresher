@@ -10,7 +10,7 @@ Example:
 
 - Basic Provider Configuration
 
-```hcl
+```terraform
 terraform {
   required_version = ">= 1.6.0"
   required_providers {
@@ -35,7 +35,7 @@ Tip: Prefer specifying provider version constraints and pin your region/profile 
 Best practices:
 
 - Use `default_tags` in the provider to apply consistent tags across resources.
-- Keep credentials out of code; use profiles/SSO/assume-role. Store state remotely with locking (S3 + DynamoDB).
+- Keep credentials out of code; use profiles/SSO/assume-role. Store state remotely (S3 backend) with locking: backend lockfile (Terraform v1.13+) or DynamoDB table for <=1.9.
 
 ### AWS KMS Key
 
@@ -45,7 +45,7 @@ Example:
 
 - CMK with rotation and alias
 
-```hcl
+```terraform
 resource "aws_kms_key" "app" {
   description         = "CMK for app data"
   enable_key_rotation = true
@@ -70,7 +70,7 @@ Example:
 
 - A Alias to ALB
 
-```hcl
+```terraform
 variable "hosted_zone_id" { type = string }
 variable "record_name"    { type = string } # e.g., app.example.com
 
@@ -88,7 +88,7 @@ resource "aws_route53_record" "alb_alias" {
 
 - CNAME record
 
-```hcl
+```terraform
 resource "aws_route53_record" "cname" {
   zone_id = var.hosted_zone_id
   name    = "api.example.com"
@@ -110,7 +110,7 @@ Example:
 
 - Private Bucket With Tags
 
-```hcl
+```terraform
 resource "aws_s3_bucket" "unique-name-example" {
   bucket = "my-tf-test-bucket"
 
@@ -203,7 +203,7 @@ Example:
 
 - Private ACL
 
-```hcl
+```terraform
 resource "aws_s3_bucket" "logs" {
   bucket = "my-logs-bucket-example"
 }
@@ -224,7 +224,7 @@ Example:
 
 - Enforce BucketOwnerEnforced (no ACLs)
 
-```hcl
+```terraform
 resource "aws_s3_bucket" "data" {
   bucket = "my-data-bucket-example"
 }
@@ -247,7 +247,7 @@ Example:
 
 - Block Public Access
 
-```hcl
+```terraform
 resource "aws_s3_bucket" "artifacts" {
   bucket = "my-artifacts-bucket-example"
 }
@@ -269,7 +269,7 @@ Example:
 
 - Default SSE-S3
 
-```hcl
+```terraform
 resource "aws_s3_bucket" "backups" {
   bucket = "my-backups-bucket-example"
 }
@@ -286,7 +286,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "backups" {
 
 Alternate: Default SSE with KMS CMK
 
-```hcl
+```terraform
 resource "aws_kms_key" "s3" {
   description         = "KMS key for S3 default encryption"
   enable_key_rotation = true
@@ -311,7 +311,7 @@ Example:
 
 - Enable Versioning
 
-```hcl
+```terraform
 resource "aws_s3_bucket" "state" {
   bucket = "my-tf-state-bucket-example"
 }
@@ -332,7 +332,7 @@ Example:
 
 - Basic VPC
 
-```hcl
+```terraform
 resource "aws_vpc" "main" {
   cidr_block           = "10.0.0.0/16"
   enable_dns_support   = true
@@ -352,7 +352,7 @@ Example:
 
 - Public and Private Subnets
 
-```hcl
+```terraform
 resource "aws_subnet" "public_a" {
   vpc_id                  = aws_vpc.main.id
   cidr_block              = "10.0.1.0/24"
@@ -382,7 +382,7 @@ Example:
 
 - IGW for Public Subnets
 
-```hcl
+```terraform
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.main.id
   tags = { Name = "main-igw" }
@@ -397,7 +397,7 @@ Example:
 
 - NAT in Public Subnet
 
-```hcl
+```terraform
 resource "aws_eip" "nat" {
   domain = "vpc"
 }
@@ -421,7 +421,7 @@ Example:
 
 - EIP for Instance
 
-```hcl
+```terraform
 resource "aws_instance" "web" {
   ami           = var.ami_id
   instance_type = "t3.micro"
@@ -447,7 +447,7 @@ Example:
 
 - Public and Private Route Tables
 
-```hcl
+```terraform
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
   route {
@@ -475,7 +475,7 @@ Example:
 
 - Associate Subnets
 
-```hcl
+```terraform
 resource "aws_route_table_association" "public_a" {
   subnet_id      = aws_subnet.public_a.id
   route_table_id = aws_route_table.public.id
@@ -495,7 +495,7 @@ Example:
 
 - Web SG Allow 80/443
 
-```hcl
+```terraform
 resource "aws_security_group" "web" {
   name        = "web-sg"
   description = "Allow web inbound"
@@ -534,7 +534,7 @@ Example:
 
 - Separate SSH Rule
 
-```hcl
+```terraform
 resource "aws_security_group_rule" "ssh" {
   type              = "ingress"
   from_port         = 22
@@ -554,7 +554,7 @@ Example:
 
 - Simple Web Server
 
-```hcl
+```terraform
 resource "aws_instance" "web" {
   ami                    = var.ami_id
   instance_type          = "t3.micro"
@@ -574,7 +574,7 @@ Example:
 
 - EC2 Assume Role
 
-```hcl
+```terraform
 data "aws_iam_policy_document" "ec2_assume" {
   statement {
     actions = ["sts:AssumeRole"]
@@ -603,7 +603,7 @@ Example:
 
 - S3 Read-Only Policy
 
-```hcl
+```terraform
 data "aws_iam_policy_document" "s3_ro" {
   statement {
     actions   = ["s3:GetObject", "s3:ListBucket"]
@@ -625,7 +625,7 @@ Example:
 
 - Inline Policy on Role
 
-```hcl
+```terraform
 resource "aws_iam_role_policy" "ec2_inline" {
   name = "allow-ssm"
   role = aws_iam_role.ec2.id
@@ -652,7 +652,7 @@ Example:
 
 - Attach Managed Policy
 
-```hcl
+```terraform
 resource "aws_iam_role_policy_attachment" "ec2_ssm" {
   role       = aws_iam_role.ec2.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
@@ -671,7 +671,7 @@ Example:
 
 - Instance Profile for EC2
 
-```hcl
+```terraform
 resource "aws_iam_instance_profile" "ec2" {
   name = "ec2-instance-profile"
   role = aws_iam_role.ec2.name
@@ -686,7 +686,7 @@ Example:
 
 - App Log Group with Retention
 
-```hcl
+```terraform
 resource "aws_cloudwatch_log_group" "app" {
   name              = "/app/web"
   retention_in_days = 30
@@ -702,7 +702,7 @@ Example:
 
 - Error Count Metric
 
-```hcl
+```terraform
 resource "aws_cloudwatch_log_metric_filter" "errors" {
   name           = "app-error-count"
   log_group_name = aws_cloudwatch_log_group.app.name
@@ -723,7 +723,7 @@ Example:
 
 - Alarm on Error Count
 
-```hcl
+```terraform
 resource "aws_cloudwatch_metric_alarm" "errors_high" {
   alarm_name          = "app-errors-high"
   comparison_operator = "GreaterThanThreshold"
@@ -747,7 +747,7 @@ Example:
 
 - Simple Dashboard
 
-```hcl
+```terraform
 resource "aws_cloudwatch_dashboard" "main" {
   dashboard_name = "app-dashboard"
   dashboard_body = jsonencode({
@@ -778,7 +778,7 @@ Example:
 
 - Alerts Topic
 
-```hcl
+```terraform
 resource "aws_sns_topic" "alerts" {
   name = "app-alerts"
 }
@@ -797,7 +797,7 @@ Example:
 
 - Allow CloudWatch to Publish
 
-```hcl
+```terraform
 data "aws_iam_policy_document" "sns_cw" {
   statement {
     effect = "Allow"
@@ -821,7 +821,7 @@ Example:
 
 - Email Subscription
 
-```hcl
+```terraform
 resource "aws_sns_topic_subscription" "alerts_email" {
   topic_arn = aws_sns_topic.alerts.arn
   protocol  = "email"
@@ -837,7 +837,7 @@ Example:
 
 - Standard Queue with DLQ
 
-```hcl
+```terraform
 resource "aws_sqs_queue" "dlq" {
   name = "app-dlq"
 }
@@ -865,7 +865,7 @@ Example:
 
 - Secure String
 
-```hcl
+```terraform
 resource "aws_ssm_parameter" "db_password" {
   name  = "/app/db/password"
   type  = "SecureString"
@@ -885,7 +885,7 @@ Example:
 
 - Gateway Endpoint for S3
 
-```hcl
+```terraform
 resource "aws_vpc_endpoint" "s3" {
   vpc_id       = aws_vpc.main.id
   service_name = "com.amazonaws.${var.aws_region}.s3"
@@ -907,7 +907,7 @@ Example:
 
 - Private Repo with Scan On Push
 
-```hcl
+```terraform
 resource "aws_ecr_repository" "app" {
   name                 = "app-repo"
   image_tag_mutability = "IMMUTABLE"
@@ -924,7 +924,7 @@ Example:
 
 - Keep Last 10 Images
 
-```hcl
+```terraform
 resource "aws_ecr_lifecycle_policy" "app" {
   repository = aws_ecr_repository.app.name
   policy = jsonencode({
@@ -950,7 +950,7 @@ Example:
 
 - ECS Cluster with Container Insights
 
-```hcl
+```terraform
 resource "aws_ecs_cluster" "this" {
   name = "app-cluster"
   setting { name = "containerInsights" value = "enabled" }
@@ -970,7 +970,7 @@ Example:
 
 - Use FARGATE and FARGATE_SPOT
 
-```hcl
+```terraform
 resource "aws_ecs_cluster_capacity_providers" "this" {
   cluster_name       = aws_ecs_cluster.this.name
   capacity_providers = ["FARGATE", "FARGATE_SPOT"]
@@ -989,7 +989,7 @@ Example:
 
 - Fargate Task Def
 
-```hcl
+```terraform
 resource "aws_ecs_task_definition" "web" {
   family                   = "web"
   requires_compatibilities = ["FARGATE"]
@@ -1024,7 +1024,7 @@ Example:
 
 - Fargate Service behind ALB
 
-```hcl
+```terraform
 resource "aws_ecs_service" "web" {
   name            = "web"
   cluster         = aws_ecs_cluster.this.id
@@ -1054,7 +1054,7 @@ Best practices:
 
 Add: Circuit Breaker + Exec
 
-```hcl
+```terraform
 resource "aws_ecs_service" "web" {
   # ...existing config...
   enable_execute_command             = true
@@ -1074,7 +1074,7 @@ Example:
 
 - Application Load Balancer
 
-```hcl
+```terraform
 resource "aws_lb" "web" {
   name               = "web-alb"
   load_balancer_type = "application"
@@ -1096,7 +1096,7 @@ Example:
 
 - HTTP Target Group for ECS
 
-```hcl
+```terraform
 resource "aws_lb_target_group" "web" {
   name        = "web-tg"
   port        = 80
@@ -1115,7 +1115,7 @@ Example:
 
 - HTTP Listener
 
-```hcl
+```terraform
 resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.web.arn
   port              = 80
@@ -1129,7 +1129,7 @@ resource "aws_lb_listener" "http" {
 
 Alternate: HTTPS Listener + HTTP→HTTPS Redirect
 
-```hcl
+```terraform
 # Provide an ACM cert ARN (same region as the ALB)
 variable "acm_certificate_arn" { type = string }
 
@@ -1178,7 +1178,7 @@ Example:
 
 - Inline Zip (Hello World)
 
-```hcl
+```terraform
 data "archive_file" "hello_zip" {
   type        = "zip"
   output_path = "build/hello.zip"
@@ -1210,7 +1210,7 @@ Example:
 
 - Allow API Gateway to Invoke
 
-```hcl
+```terraform
 resource "aws_lambda_permission" "apigw" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
@@ -1232,7 +1232,7 @@ Example:
 
 - S3 Static Website (OAC recommended in production)
 
-```hcl
+```terraform
 resource "aws_cloudfront_distribution" "cdn" {
   enabled             = true
   default_root_object = "index.html"
@@ -1257,7 +1257,7 @@ resource "aws_cloudfront_distribution" "cdn" {
 
 Add OAC + Restrictive S3 Bucket Policy
 
-```hcl
+```terraform
 resource "aws_cloudfront_origin_access_control" "oac" {
   name                              = "s3-oac"
   origin_access_control_origin_type = "s3"
@@ -1312,7 +1312,7 @@ Example:
 
 - Simple Build with Logs
 
-```hcl
+```terraform
 resource "aws_codebuild_project" "app" {
   name         = "app-build"
   service_role = aws_iam_role.codebuild.arn
@@ -1349,7 +1349,7 @@ Example:
 
 - S3 Source → CodeBuild
 
-```hcl
+```terraform
 resource "aws_s3_bucket" "pipeline_artifacts" { bucket = "pipeline-artifacts-example" }
 
 resource "aws_codepipeline" "app" {
@@ -1400,7 +1400,7 @@ Example:
 
 - GitHub Connection (requires console handshake)
 
-```hcl
+```terraform
 resource "aws_codestarconnections_connection" "github" {
   name          = "github-conn"
   provider_type = "GitHub"
@@ -1415,7 +1415,7 @@ Example:
 
 - Notify Pipeline State Changes to SNS
 
-```hcl
+```terraform
 resource "aws_codestarnotifications_notification_rule" "pipeline" {
   name        = "pipeline-notify"
   detail_type = "FULL"
@@ -1436,7 +1436,7 @@ Example:
 
 - Scale ECS Service by DesiredCount
 
-```hcl
+```terraform
 resource "aws_appautoscaling_target" "ecs" {
   max_capacity       = 10
   min_capacity       = 2
@@ -1454,7 +1454,7 @@ Example:
 
 - Target Tracking on CPU 50%
 
-```hcl
+```terraform
 resource "aws_appautoscaling_policy" "ecs_cpu" {
   name               = "ecs-cpu-tt"
   policy_type        = "TargetTrackingScaling"
@@ -1481,7 +1481,7 @@ Example:
 
 - Off-hours Scale Down
 
-```hcl
+```terraform
 resource "aws_appautoscaling_scheduled_action" "night" {
   name               = "ecs-scale-night"
   service_namespace  = aws_appautoscaling_target.ecs.service_namespace
@@ -1500,7 +1500,7 @@ Example:
 
 - Private Subnets for RDS
 
-```hcl
+```terraform
 resource "aws_db_subnet_group" "main" {
   name       = "main-db-subnets"
   subnet_ids = [aws_subnet.private_a.id]
@@ -1516,7 +1516,7 @@ Example:
 
 - Custom Parameter
 
-```hcl
+```terraform
 resource "aws_db_parameter_group" "pg" {
   name   = "app-pg"
   family = "postgres15"
@@ -1532,7 +1532,7 @@ Example:
 
 - Option Group (engine-specific)
 
-```hcl
+```terraform
 resource "aws_db_option_group" "og" {
   name                 = "app-og"
   engine_name          = "oracle-ee"
@@ -1548,7 +1548,7 @@ Example:
 
 - Postgres in Private Subnets
 
-```hcl
+```terraform
 resource "aws_db_instance" "postgres" {
   identifier              = "app-postgres"
   engine                  = "postgres"
@@ -1575,7 +1575,7 @@ Example:
 
 - Subnets for Redis
 
-```hcl
+```terraform
 resource "aws_elasticache_subnet_group" "main" {
   name       = "redis-subnets"
   subnet_ids = [aws_subnet.private_a.id]
@@ -1590,7 +1590,7 @@ Example:
 
 - Redis Params
 
-```hcl
+```terraform
 resource "aws_elasticache_parameter_group" "redis" {
   name   = "redis-pg"
   family = "redis7"
@@ -1606,7 +1606,7 @@ Example:
 
 - Redis Cluster (cluster mode disabled)
 
-```hcl
+```terraform
 resource "aws_elasticache_cluster" "redis" {
   cluster_id           = "app-redis"
   engine               = "redis"
@@ -1619,7 +1619,7 @@ resource "aws_elasticache_cluster" "redis" {
 
 Alternate: Memcached Cluster
 
-```hcl
+```terraform
 resource "aws_elasticache_parameter_group" "memcached" {
   name   = "memcached-pg"
   family = "memcached1.6"
@@ -1648,7 +1648,7 @@ Example:
 
 - Redis Replication Group
 
-```hcl
+```terraform
 resource "aws_elasticache_replication_group" "redis_rg" {
   replication_group_id          = "app-redis-rg"
   description                   = "Highly available Redis"
@@ -1670,7 +1670,7 @@ Example:
 
 - EIP for NAT or EC2 (see earlier examples)
 
-```hcl
+```terraform
 # See separate aws_eip examples above.
 ```
 

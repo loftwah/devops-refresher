@@ -7,7 +7,7 @@ Goal: Recreate a production-like staging environment for a containerized web app
 - AWS account + IAM admin (bootstrap only), then least-privileged roles.
 - Route53 domain (or subdomain delegation) and ACM cert for HTTPS.
 - Docker and a container image to deploy (or sample Nginx).
-- Terraform remote backend (S3 + DynamoDB) ready.
+- Terraform remote backend (S3 with lockfile-based locking on Terraform v1.13+) ready.
 
 ## High-level Architecture
 
@@ -22,7 +22,7 @@ Goal: Recreate a production-like staging environment for a containerized web app
 ## Build It Incrementally
 
 1. Backend & scaffolding
-   - Create S3 bucket + DynamoDB table; configure Terraform backend.
+   - Create S3 bucket; configure Terraform backend with lockfile-based locking.
    - Create a root `main.tf`, `providers.tf`, `variables.tf`, `outputs.tf`.
    - Add tagging locals and consistent naming patterns.
 

@@ -1,1 +1,21 @@
 .private/
+
+# macOS
+.DS_Store
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfplan
+
+# Local variables (keep examples committed)
+*.tfvars
+*.tfvars.json
+!*.example.tfvars
+
+# Local env files
+.env
+.env.*

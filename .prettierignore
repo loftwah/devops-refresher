@@ -1,0 +1,25 @@
+# Terraform build artifacts and state
+.terraform/
+**/.terraform/**
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+
+# Provider binaries (can live deep under .terraform/)
+**/terraform-provider-*
+
+# Plans and crash logs
+*.tfplan
+crash.log
+crash.*.log
+
+# Node/yarn/npm clutter (if present)
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# OS/editor files
+.DS_Store
+.idea/
+.vscode/

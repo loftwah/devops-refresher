@@ -22,7 +22,7 @@ Snippet (HTTPS listener + redirect, cert passed in): see `terraform-resource-che
 
 Alternate (DNS-validated ACM via Route53):
 
-```hcl
+```terraform
 variable "domain_name"        { type = string }
 variable "hosted_zone_id"     { type = string }
 
@@ -48,7 +48,7 @@ resource "aws_acm_certificate_validation" "alb" {
 
 Route53 Alias to ALB:
 
-```hcl
+```terraform
 variable "alb_hostname" { type = string } # e.g., app.example.com
 variable "hosted_zone_id" { type = string }
 
@@ -66,7 +66,7 @@ resource "aws_route53_record" "alb_alias" {
 
 Toggle: HTTP-only vs HTTPS + redirect
 
-```hcl
+```terraform
 variable "enable_https" { type = bool, default = true }
 
 resource "aws_lb_listener" "https" {
@@ -168,7 +168,7 @@ Gotchas:
 
 Endpoints list example:
 
-```hcl
+```terraform
 locals {
   interface_endpoints = [
     "com.amazonaws.${var.region}.ecr.api",
@@ -215,7 +215,7 @@ Gotchas:
 
 Route53 Alias to CloudFront:
 
-```hcl
+```terraform
 variable "cdn_hostname"   { type = string }  # e.g., cdn.example.com
 variable "hosted_zone_id" { type = string }
 
@@ -246,7 +246,7 @@ Decisions:
 
 Optional: AWS Backup (managed backups)
 
-```hcl
+```terraform
 resource "aws_backup_vault" "main" {
   name = "app-backup-vault"
 }
@@ -284,7 +284,7 @@ Preferred (bastionless):
 
 Example (SSM-managed bastion without SSH open):
 
-```hcl
+```terraform
 resource "aws_iam_role" "bastion_ssm" {
   name = "bastion-ssm-role"
   assume_role_policy = jsonencode({
@@ -326,7 +326,7 @@ Private ECR (immutable, lifecycle, scanning): see cheatsheet.
 
 Pull Through Cache (mirror Docker Hub/quay):
 
-```hcl
+```terraform
 resource "aws_ecr_pull_through_cache_rule" "dockerhub" {
   ecr_repository_prefix = "dockerhub"
   upstream_registry_url = "registry-1.docker.io"
@@ -335,7 +335,7 @@ resource "aws_ecr_pull_through_cache_rule" "dockerhub" {
 
 Public ECR Repository (publish images):
 
-```hcl
+```terraform
 resource "aws_ecrpublic_repository" "app" {
   repository_name = "my-public-app"
   catalog_data { about_text = "Public image for my app" }

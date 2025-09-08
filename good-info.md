@@ -57,6 +57,10 @@ Notes:
 - You do not need to list extensions; Prettier detects and formats only supported file types.
 - Use globs only when you want to target a subset of files (e.g., `"src/**/*.ts"`). Quote globs to avoid shell expansion.
 - Add other folders to `.prettierignore` to exclude them (e.g., `dist/`, `coverage/`).
+- Ignore Terraform build/state paths so Prettier doesn’t traverse provider binaries or state:
+  - `.terraform/`, `**/.terraform/**`
+  - `*.tfstate`, `*.tfstate.*`, `.terraform.lock.hcl`
+  - `**/terraform-provider-*`
 
 Troubleshooting:
 
@@ -71,3 +75,7 @@ Using Rails as a monolith, I can have a service that returns either success or f
 ## 1password integration
 
 When dealing with environment variables I can integrate with 1password to get the values from the 1password vault, instead of having to store them on my local machine.
+
+## Multiple AWS Accounts
+
+When using multiple AWS accounts in a single organization, we can use the same email address for all of the accounts if we add tags to our email address like `dean+devopsrefresher@deanlofts.xyz` for example.

@@ -3,24 +3,26 @@
 ## State & Backends
 
 - Purpose: Track real AWS resources vs desired config; enable plans/diffs.
-- Remote backend: Use S3 for state + DynamoDB for state locking.
-- Required: Versioned S3 bucket, server-side encryption, DynamoDB table with primary key `LockID`.
+- Remote backend: Use S3 for state with backend lockfiles (Terraform v1.13+). For older Terraform (<=1.9), use DynamoDB for state locking.
+- Required: Versioned S3 bucket and server-side encryption; TLS-only bucket policy recommended.
 - Workspaces vs separate states: Prefer separate states (per env) for isolation; workspaces are OK for light separation.
 
 Example backend:
 
 ```
 terraform {
-  required_version = ">= 1.5"
+  required_version = ">= 1.13.0"
   backend "s3" {
-    bucket         = "tf-state-<account>-<region>"
-    key            = "staging/root.tfstate"
-    region         = "us-east-1"
-    dynamodb_table = "tf-locks"
-    encrypt        = true
+    bucket       = "tf-state-<account>-<region>"
+    key          = "staging/root.tfstate"
+    region       = "us-east-1"
+    use_lockfile = true
+    encrypt      = true
   }
 }
 ```
+
+Legacy (<= 1.9.x): replace `use_lockfile` with `dynamodb_table = "tf-locks"` and ensure a table exists with PK `LockID`.
 
 ## Providers, Version Pinning, Cloud Credentials
 

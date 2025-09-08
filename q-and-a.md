@@ -2,8 +2,8 @@
 
 ## Terraform
 
-- Q: Why use an S3 backend with DynamoDB locking?
-  A: Remote state enables collaboration and locking prevents concurrent state writes that corrupt state.
+- Q: Why use an S3 backend with locking?
+  A: Remote state enables collaboration; locking (backend lockfile in v1.13+, or DynamoDB on older TF) prevents concurrent state writes that can corrupt state.
 
 - Q: Workspaces or separate states?
   A: Separate states per environment isolate blast radius and simplify RBAC; workspaces are fine for simple cases.
