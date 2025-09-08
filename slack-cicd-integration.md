@@ -1,6 +1,6 @@
 # Slack CI/CD Notifications (Loftwah Reference)
 
-This is a plain‑English walkthrough of the Slack notifications system Loftwah built for CI/CD. It explains the why, what, where, and how — including where the Python lives, how it becomes a Lambda, and how it hooks into CodePipeline.
+This is a plain‑English walkthrough of the Slack notifications system I built for CI/CD. It explains the why, what, where, and how — including where the Python lives, how it becomes a Lambda, and how it hooks into CodePipeline.
 
 Short version: CodePipeline/CodeBuild events → CodeStar Notifications → SNS → Lambda (Python) → Slack Incoming Webhook.
 
