@@ -19,7 +19,6 @@ This repository is a comprehensive resource for mastering DevOps concepts, prepa
 Original problems plus more: Focus on efficiency in large datasets (e.g., logs in ELK stack).
 
 - **Two Pointers:**
-
   - Two-Sum: Given array and target, find indices summing to target.
     - **Python Solution:** `def twoSum(nums, target): for i in range(len(nums)): for j in range(i+1, len(nums)): if nums[i] + nums[j] == target: return [i,j]` (O(n^2) naive; optimize to O(n) with hashmap).
     - Complexity: Time O(n), Space O(n).
@@ -35,7 +34,6 @@ Original problems plus more: Focus on efficiency in large datasets (e.g., logs i
   - Remove Duplicates from Sorted Array. Application: Deduplicating logs in Splunk or ELK.
 
 - **Sliding Window:**
-
   - Longest Substring Without Repeats.
     - Python: Use set and pointers; O(n) time.
     - Application: Session management in web apps (e.g., unique user IDs in Redis sliding windows for rate limiting).
@@ -46,7 +44,6 @@ Original problems plus more: Focus on efficiency in large datasets (e.g., logs i
   - Longest Repeating Character Replacement. Application: Handling noisy data in ML pipelines for anomaly detection.
 
 - **Prefix Sum:**
-
   - Subarray Sum Equals K.
     - Hashmap of prefix sums: O(n) time.
     - Application: Cumulative cost tracking in AWS Billing (e.g., subarray of daily spends equaling budget).
@@ -404,27 +401,22 @@ Tradeoffs: CF for global cache vs direct LB for low latency.
 - Helm charts for K8s, cost optimization notes, and multi-env configs.
 
 1. **Rails/Go/Python API → ECS Fargate:**
-
    - ECR push, ALB service, ASG, CodePipeline CI/CD.
    - Application: TODO API; scales on requests.
 
 2. **Same App → EKS:**
-
    - Deployment/Service/Ingress, ConfigMaps/Secrets, HPA, Prometheus.
    - Application: Add auth; monitor pods.
 
 3. **Extend with RDS + ElastiCache:**
-
    - Connect Postgres/Redis, failover tests.
    - Application: Caching queries for performance.
 
 4. **CI/CD for ECS/EKS:**
-
    - CodePipeline for ECS, GitHub Actions for EKS, blue/green/canary.
    - Application: Versioned deploys.
 
 5. **Monitoring and Security:**
-
    - CloudWatch/SNS, KMS encryption, Secrets rotation, GuardDuty.
    - Application: Alert on anomalies.
 
@@ -434,7 +426,6 @@ Tradeoffs: CF for global cache vs direct LB for low latency.
    - Application: Chat app filter.
 
 - Serverless Demo: API Gateway + Lambda + DynamoDB.
-
   - Application: Event-driven.
 
 - IoT Demo: IoT Core + Lambda.

@@ -16,7 +16,7 @@ Third party extensions are automatically placed in the primary sidebar in Cursor
 - Host: `loftwah@192.168.1.103`. Destination: `/mnt/data/home/loftwah/`.
 
 ```
-# 1) SSH in and create the destination (one-time, needs sudo):
+# 1) SSH in and create the destination:
 ssh -t loftwah@192.168.1.103 'sudo mkdir -p /mnt/data/home/loftwah && sudo chown -R $USER:$USER /mnt/data/home/loftwah'
 
 # 2) Simple rsync (repeatable): local home -> Pi
@@ -53,11 +53,21 @@ npx prettier --ignore-path .gitignore --write .
 ```
 
 Notes:
+
 - You do not need to list extensions; Prettier detects and formats only supported file types.
 - Use globs only when you want to target a subset of files (e.g., `"src/**/*.ts"`). Quote globs to avoid shell expansion.
 - Add other folders to `.prettierignore` to exclude them (e.g., `dist/`, `coverage/`).
 
 Troubleshooting:
+
 - Directories are recursive: `npx prettier --write guide` walks `guide/` and subfolders.
 - If you see “No files matching the pattern…”, then either the path is wrong relative to CWD, all files are ignored by `.prettierignore`/`--ignore-path`, or there are no Prettier‑supported files in that folder.
 - Target a known type explicitly if needed, e.g. Markdown: `npx prettier --write "guide/**/*.md"`.
+
+## Composible Service Architecture
+
+Using Rails as a monolith, I can have a service that returns either success or failure, and this way each of the services are standalone, and can be very easily migrated to a microservice architecture. When documenting these, we want to show an example of how it is used, but also we want to document where, and how we use it.
+
+## 1password integration
+
+When dealing with environment variables I can integrate with 1password to get the values from the 1password vault, instead of having to store them on my local machine.
