@@ -30,6 +30,13 @@ Legacy (<= 1.9.x): replace `use_lockfile` with `dynamodb_table = "tf-locks"` and
 - Source AWS creds from a named profile; never hardcode.
 - Validate with `aws sts get-caller-identity` and `terraform providers`.
 
+## Provider Lockfile
+
+- Purpose: `.terraform.lock.hcl` pins exact provider versions and checksums for reproducible, trusted installs across machines and CI.
+- Lifecycle: Created/updated by `terraform init`; upgrade with `terraform init -upgrade` or explicitly with `terraform providers lock`.
+- Multi-platform: Lock additional platforms for CI images or teammates, e.g. `terraform providers lock -platform=darwin_arm64 -platform=linux_amd64`.
+- VCS: Commit the lockfile; do not hand-edit.
+
 ## Modules & Composition
 
 - Prefer small, reusable modules per resource domain (vpc, alb, ecr, ecs, monitoring).
@@ -59,6 +66,12 @@ Legacy (<= 1.9.x): replace `use_lockfile` with `dynamodb_table = "tf-locks"` and
 - Prefer SSM Parameter Store (SecureString) or Secrets Manager + IAM policies.
 - Mark Terraform variables `sensitive = true`; avoid writing secrets to state.
 
+## State Files & Git
+
+- Canonical state: With the S3 backend, the source of truth lives in the bucket (`key` path). Terraform handles locking (lockfile-based on v1.13+).
+- Local files: `.terraform/` contains caches and a local working copy of state; `terraform.tfstate` may exist only if you ran without a backend before migrating.
+- Git hygiene: Ignore all `*.tfstate*` and `.terraform/`; never commit state (it may contain secrets and ARNs).
+
 ## Common Commands
 
 - Init: `terraform init -upgrade`
@@ -67,3 +80,4 @@ Legacy (<= 1.9.x): replace `use_lockfile` with `dynamodb_table = "tf-locks"` and
 - Apply: `terraform apply -var-file=staging.tfvars`
 - Show state: `terraform state list|show`
 - Import: `terraform import` (then add config)
+- Lock providers for extra platforms: `terraform providers lock -platform=darwin_arm64 -platform=linux_amd64`
