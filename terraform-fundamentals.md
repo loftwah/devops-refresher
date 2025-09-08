@@ -78,6 +78,37 @@ Tip: Backend `key` cannot use variables/locals. Standardize a naming convention 
 - Locals: Centralize naming, tags, and common computed values.
 - Data sources: Pull ARNs, images, AMIs, hosted zones, certs, etc., from AWS.
 
+### Quick Choice Checklist
+
+- Input from caller/env/CI: use `variable`.
+- Computed or repeated expression (DRY): use `local`.
+- Needed by parent/other modules or states: use `output`.
+- Secret or sensitive: prefer SSM/Secrets Manager; mark vars/outputs `sensitive`.
+- Varies by env/account with sensible default: `variable` (with default).
+- Naming/tagging conventions within a module: `local`.
+
+### Variables
+
+- Purpose: Inputs passed into a module from the outside (CLI, tfvars, env, or a calling module).
+- Scope: Public interface of a module; forms the contract for consumers.
+- When to use:
+  - Values that differ across environments, accounts, or deployments
+  - Reusable modules where callers must supply their settings
+  - Runtime configuration supplied via `terraform.tfvars`, CLI `-var/-var-file`, or environment
+
+Example (provider region via variable):
+
+```hcl
+variable "region" {
+  type    = string
+  default = "ap-southeast-2"
+}
+
+provider "aws" {
+  region = var.region
+}
+```
+
 ### Locals
 
 - What they are: Read‑only values computed inside a module using expressions. They are not inputs (like variables) and not outputs; they are a way to DRY up repeated expressions.
@@ -104,6 +135,97 @@ resource "aws_s3_bucket" "tf_state" {
 ```
 
 This computes the AWS account ID at runtime and builds a consistent, unique bucket name per account and region, then reuses it across resources.
+
+Another example (locals for tags and naming):
+
+```hcl
+variable "env" {
+  type = string
+}
+
+locals {
+  common_tags = {
+    Environment = var.env
+    Owner       = "platform-team"
+  }
+}
+
+resource "aws_s3_bucket" "example" {
+  bucket = "${var.env}-data-bucket"
+  tags   = local.common_tags
+}
+```
+
+### Variables vs Locals (Rule of Thumb)
+
+- Use variables for inputs coming from outside the module.
+- Use locals for derived or reusable expressions inside the module.
+
+Combined usage example:
+
+```hcl
+variable "project" { type = string }
+variable "env"     { type = string }
+
+locals {
+  resource_prefix = "${var.project}-${var.env}"
+}
+
+resource "aws_s3_bucket" "example" {
+  bucket = "${local.resource_prefix}-bucket"
+}
+```
+
+### Locals vs Outputs
+
+- Purpose:
+  - Locals: Internal convenience values to simplify expressions within a module.
+  - Outputs: Public results exposed by a module to its caller (or shown by `terraform output`).
+- Scope:
+  - Locals: Private to the module; not visible to callers.
+  - Outputs: Part of the module’s external contract; consumed by parent/root modules.
+- When to use outputs:
+  - Expose IDs/ARNs/names that other modules or stacks need (e.g., `vpc_id`, `subnet_ids`, `bucket_name`).
+  - Surface computed values the caller must reference without re‑implementing the logic.
+  - Provide helpful runtime information at the root (via `terraform output`).
+- Sensitivity:
+  - Both locals and outputs end up in state if referenced; avoid secrets or mark outputs `sensitive = true`.
+
+Example (locals for tags; outputs for cross‑module wiring):
+
+```hcl
+variable "env" { type = string }
+
+locals {
+  common_tags = {
+    Environment = var.env
+    Owner       = "platform-team"
+  }
+}
+
+resource "aws_s3_bucket" "example" {
+  bucket = "${var.env}-data-bucket"
+  tags   = local.common_tags
+}
+
+output "bucket_name" {
+  value     = aws_s3_bucket.example.bucket
+  sensitive = false
+}
+```
+
+Consumed by a caller (root module):
+
+```hcl
+module "storage" {
+  source = "./modules/storage"
+  env    = var.env
+}
+
+output "storage_bucket_name" {
+  value = module.storage.bucket_name
+}
+```
 
 ## Plans, Applies, and Safe Iteration
 

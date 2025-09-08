@@ -100,7 +100,6 @@ Think of it like:
 - **NAT GW**: Hourly charge + per-GB data processing.
 - **VPC Endpoints**: Gateway endpoints are free; interface endpoints have hourly + per-GB fees.
 - Optimisation:
-
   - Use VPC endpoints for S3/DynamoDB to cut NAT costs.
   - Deploy NAT GW in each AZ to avoid cross-AZ charges.
   - Keep only resources that must be public in public subnets.

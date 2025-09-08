@@ -7,6 +7,11 @@ Use this as a quick checklist while building. Each section lists required, optio
 - Required: One VPC (with DNS support), 2+ public subnets, 2+ private subnets, 1 Internet Gateway (IGW), route tables, 1+ NAT Gateway for private egress.
 - Optional: One NAT per AZ (HA), VPC Endpoints (SSM/ECR/CloudWatch Logs/S3), Flow Logs, custom NACLs (defaults are fine).
 
+Regions and AZs (context)
+
+- Region: A geographic area like `ap-southeast-2` (Sydney) or `ap-southeast-4` (Melbourne). You pick one region for your stack.
+- Availability Zones (AZs): Separate data centers inside a region (e.g., `ap-southeast-2a`, `2b`). AZ letters differ per account; use two AZs for HA. For cross-account consistency, prefer AZ IDs (e.g., `apse2-az1`).
+
 What each thing is for and how it connects
 
 - VPC: Your private network in AWS. Turn on `DNS hostnames` and `DNS support` so services resolve DNS. Everything below lives inside the VPC.
@@ -18,6 +23,12 @@ What each thing is for and how it connects
 - Route tables: Connect subnets to where their traffic goes. Associate public subnets to a route table with default route to IGW; associate private subnets to a route table with default route to NAT.
 - VPC Endpoints (optional): Private links to AWS services (no internet/NAT). Common: ECR (api + dkr), SSM, CloudWatch Logs, S3. Reduces NAT costs and increases privacy.
 - NACLs (optional): Subnet firewalls. Default allow-all works for most setups; rely on Security Groups for filtering.
+
+DNS support and hostnames (why it matters)
+
+- enableDnsSupport: Lets instances/tasks use the Amazon-provided DNS resolver in your VPC to resolve names (public and private). Required for ECR pulls, CloudWatch Logs, SSM, etc.
+- enableDnsHostnames: Assigns DNS hostnames inside the VPC and enables Private DNS for endpoints and Route 53 private zones. Required for ECS service discovery and for VPC endpoints to replace public names transparently.
+- If either is off, name resolution can fail and ECS tasks may not pull images or ship logs. Always enable both on app VPCs.
 
 Minimum viable layout (2 AZs)
 
@@ -34,6 +45,11 @@ What connects to what (typical ECS + ALB)
 - ECS tasks: Run in private subnets; security group allows inbound only from the ALB’s security group on the app port. For outbound: either NAT to internet or VPC Endpoints to AWS services.
 - ECR/Logs/SSM: Reach via NAT (simple) or via VPC Endpoints (private). If you don’t add endpoints, you must have NAT for private subnets.
 
+Frontend example (CloudFront + S3) and API
+
+- Frontend: React/TanStack app built to static assets, stored in S3, served via CloudFront. This sits outside the VPC. Use CloudFront Origin Access Control (OAC) to read from S3 privately.
+- API: Express/TypeScript app runs on ECS Fargate in private subnets, fronted by an ALB in public subnets. ALB receives from internet; forwards to ECS targets.
+
 Validate (spell it out)
 
 - Subnets count/AZ spread: Confirm at least two public and two private subnets across two different AZs.
@@ -48,6 +64,18 @@ Validate (spell it out)
   - From an ECS task, outbound `curl https://api.ipify.org` returns a public IP (via NAT) unless you restrict egress; if using endpoints, verify pulls to ECR and logs to CloudWatch succeed without internet.
 - Reachability Analyzer (optional): Path from ALB SG to ECS task ENI on app port is reachable.
 - Costs/HA note: One NAT is cheaper but a single-AZ dependency; two NATs cost more but avoid cross-AZ data charges and single-point NAT failure.
+
+Example IP scheme (leaves room to grow)
+
+- VPC CIDR: `10.20.0.0/16`
+- AZs: `ap-southeast-2a` and `ap-southeast-2b`
+- Subnets (/20s give room for scaling):
+  - public-a: `10.20.0.0/20`
+  - public-b: `10.20.16.0/20`
+  - private-app-a: `10.20.32.0/20`
+  - private-app-b: `10.20.48.0/20`
+  - (reserve for future) private-data-a: `10.20.64.0/20`, private-data-b: `10.20.80.0/20` (e.g., RDS/Redis)
+- Terraform tip: derive deterministically with `cidrsubnet("10.20.0.0/16", 4, index)` where index 0..N maps to blocks above.
 
 ## Security Groups
 
@@ -104,6 +132,28 @@ Validate (spell it out)
 - Validate: Logs flowing; alerts fire under induced failures.
 
 ## CI/CD (CodePipeline + CodeBuild)
+
+## VPC Endpoints (Deep Dive)
+
+- Types:
+  - Interface endpoints (AWS PrivateLink): Elastic network interfaces in your subnets. Need a security group. Enable Private DNS to make standard service hostnames resolve to the endpoint.
+  - Gateway endpoints: Route table entries for S3 and DynamoDB. No ENI/SG; add to the route tables of the subnets that need them.
+- Why: Keep private subnets off the public internet and reduce NAT costs while letting ECS tasks pull images, write logs, and use SSM.
+- Common endpoints for ECS apps:
+  - ECR API: `com.amazonaws.<region>.ecr.api` (interface)
+  - ECR DKR: `com.amazonaws.<region>.ecr.dkr` (interface) — image layer downloads
+  - CloudWatch Logs: `com.amazonaws.<region>.logs` (interface)
+  - SSM: `com.amazonaws.<region>.ssm`, `ssmmessages`, `ec2messages` (interface) — Session Manager/agent
+  - S3: `com.amazonaws.<region>.s3` (gateway)
+- Setup tips:
+  - Place interface endpoints in each private subnet AZ; attach an SG that allows inbound from your app/security groups on the endpoint ports.
+  - Turn on Private DNS for interface endpoints so existing SDK/CLI URLs resolve privately without code changes.
+  - Add the S3 gateway endpoint to all route tables (public and private) that need S3 without NAT; verify route table entries created by the endpoint.
+- Validate:
+  - ECR: ECS task can pull an image with NAT disabled (temporarily) to confirm endpoint sufficiency.
+  - Logs: App logs appear in CloudWatch without using NAT (watch for retries in logs).
+  - SSM: Start a Session Manager shell into an instance/managed task where applicable; confirm connectivity without public IPs.
+  - S3: `aws s3 ls s3://your-bucket` from a private subnet works with only the gateway endpoint present.
 
 - Required: Build spec (Docker build/push); artifact with image URI; deploy stage updating task definition.
 - Optional: Manual approvals; Slack/Webhook notifications; blue/green deploy.

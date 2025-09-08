@@ -56,11 +56,9 @@ IAM is effectively **Active Directory for AWS resources**, but expressed as JSON
 Every API call to AWS is evaluated by IAM according to strict precedence rules:
 
 1. **Implicit Deny (default)**
-
    - By default, all requests are denied if no policy allows them.
 
 2. **Explicit Allow**
-
    - If a policy explicitly allows an action on a resource, the request is allowed, unless overridden by a deny.
 
 3. **Explicit Deny (highest precedence)**
