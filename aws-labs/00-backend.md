@@ -23,16 +23,26 @@
 - **Init needs a backend to exist:** Terraform can’t use a remote backend until the storage exists. The bootstrap stack creates the bucket; the state stack then initializes to S3 and stores state there.
 - **Clean separation:** The state stack contains only the backend configuration, so `terraform apply` in that folder shows “No changes” (expected) because it manages no resources — it only uses the remote state.
 
+## Multiple States (Beyond Bootstrap)
+
+- You can keep many Terraform states in the same S3 bucket by using different backend `key` prefixes per stack/environment.
+- Examples:
+  - `bootstrap/global/terraform.tfstate` (this lab)
+  - `staging/network/terraform.tfstate`, `staging/ecs/terraform.tfstate`
+  - `prod/network/terraform.tfstate`, `prod/ecs/terraform.tfstate`
+- Each stack sets its own `key` in `terraform { backend "s3" { ... } }` and will lock independently.
+- For strict isolation or different KMS keys/policies, use separate buckets; otherwise a single bucket per account/region is standard.
+
 ## Tasks
 
 1. Bootstrap (creates backend infra)
-   - cd aws-labs/00-backend-bootstrap
-   - terraform init
-   - terraform apply
+   - `cd aws-labs/00-backend-bootstrap`
+   - `terraform init`
+   - `terraform apply`
 2. Configure and use remote backend
-   - cd aws-labs/00-backend-terraform-state
-   - terraform init
-   - terraform apply
+   - `cd aws-labs/00-backend-terraform-state`
+   - `terraform init`
+   - `terraform apply`
 
 ## Acceptance Criteria
 
@@ -50,3 +60,12 @@
 - **State file in S3:** Check the object under key `global/s3/terraform.tfstate` in the bucket output by bootstrap.
 - **Terraform state commands:** `terraform state list` runs in `aws-labs/00-backend-terraform-state` and uses the S3 backend.
 - **Lock messages:** You will see “Acquiring/Releasing state lock” messages; with lockfile-based locking, Terraform coordinates access without DynamoDB.
+
+## Automated Validation
+
+- Run `bash scripts/validate-backend.sh` from the repo root.
+- Checks performed:
+  - Reads the bucket name from `aws-labs/00-backend-bootstrap` outputs
+  - Verifies the S3 bucket exists and the state object key `global/s3/terraform.tfstate` is present
+  - Confirms backend config uses `use_lockfile = true`
+  - Runs `terraform state list` in `aws-labs/00-backend-terraform-state` to confirm remote access

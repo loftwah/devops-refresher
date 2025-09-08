@@ -2,11 +2,52 @@
 
 Use this as a quick checklist while building. Each section lists required, optional, and validation steps.
 
-## VPC & Subnets
+## AWS VPC Networking (Simple)
 
-- Required: VPC CIDR; 2+ public + 2+ private subnets; IGW; NAT GW; route tables.
-- Optional: VPC endpoints (SSM, ECR, CloudWatch Logs), Flow Logs.
-- Validate: Routes per subnet; NAT for private subnets; AZ distribution.
+- Required: One VPC (with DNS support), 2+ public subnets, 2+ private subnets, 1 Internet Gateway (IGW), route tables, 1+ NAT Gateway for private egress.
+- Optional: One NAT per AZ (HA), VPC Endpoints (SSM/ECR/CloudWatch Logs/S3), Flow Logs, custom NACLs (defaults are fine).
+
+What each thing is for and how it connects
+
+- VPC: Your private network in AWS. Turn on `DNS hostnames` and `DNS support` so services resolve DNS. Everything below lives inside the VPC.
+- Availability Zones (AZs): Separate data centers in a region. Put resources across at least two AZs for resilience.
+- Public subnets (2+): Subnets that can reach the internet directly. They associate to a route table that sends `0.0.0.0/0` to the IGW. Host internet-facing things like ALB and NAT Gateways.
+- Private subnets (2+): Subnets without direct internet. Their route table sends `0.0.0.0/0` to a NAT Gateway in a public subnet so they can download updates, pull images, call APIs, etc. Run ECS tasks/EC2 here.
+- Internet Gateway (IGW): Attaches to the VPC. Public subnets route internet-bound traffic to the IGW.
+- NAT Gateway (NAT GW): Lives in a public subnet with an Elastic IP. Private subnets send outbound internet traffic to the NAT, which forwards it to the IGW. Use one per AZ for HA; minimum is one NAT (cheaper, less resilient).
+- Route tables: Connect subnets to where their traffic goes. Associate public subnets to a route table with default route to IGW; associate private subnets to a route table with default route to NAT.
+- VPC Endpoints (optional): Private links to AWS services (no internet/NAT). Common: ECR (api + dkr), SSM, CloudWatch Logs, S3. Reduces NAT costs and increases privacy.
+- NACLs (optional): Subnet firewalls. Default allow-all works for most setups; rely on Security Groups for filtering.
+
+Minimum viable layout (2 AZs)
+
+- Subnets: `public-a`, `public-b` in two AZs; `private-a`, `private-b` in the same two AZs.
+- IGW: 1 attached to the VPC.
+- NAT: 1 total (budget) in one public subnet, or 2 (best) one per AZ. Private subnets should prefer NAT in their own AZ when available.
+- Route tables:
+  - Public RT: `0.0.0.0/0 -> igw-...`; associated with all public subnets.
+  - Private RT(s): `0.0.0.0/0 -> nat-...`; associated with private subnets. With two NATs, use one RT per AZ pointing to that AZ’s NAT.
+
+What connects to what (typical ECS + ALB)
+
+- ALB: Lives in public subnets; has a security group that allows 80/443 from the internet. Targets are ECS tasks in private subnets.
+- ECS tasks: Run in private subnets; security group allows inbound only from the ALB’s security group on the app port. For outbound: either NAT to internet or VPC Endpoints to AWS services.
+- ECR/Logs/SSM: Reach via NAT (simple) or via VPC Endpoints (private). If you don’t add endpoints, you must have NAT for private subnets.
+
+Validate (spell it out)
+
+- Subnets count/AZ spread: Confirm at least two public and two private subnets across two different AZs.
+- Public subnets routing: For each public subnet’s associated route table, check a default route `0.0.0.0/0` to the IGW, and no default to a NAT.
+- Private subnets routing: For each private subnet’s route table, check a default route `0.0.0.0/0` to a NAT Gateway, and no route to the IGW.
+- NAT placement: NAT lives in a public subnet and has an Elastic IP. If running two NATs, each private subnet should use the NAT in the same AZ.
+- IGW attachment: IGW must be in the same VPC and shown as “attached”.
+- DNS settings: VPC has DNS Hostnames + DNS Support enabled (needed for ECS/ECR/Docker pulls).
+- Connectivity checks:
+  - ALB DNS name answers publicly; HTTP→HTTPS redirect works; HTTPS serves valid cert.
+  - Target group shows healthy ECS tasks in private subnets.
+  - From an ECS task, outbound `curl https://api.ipify.org` returns a public IP (via NAT) unless you restrict egress; if using endpoints, verify pulls to ECR and logs to CloudWatch succeed without internet.
+- Reachability Analyzer (optional): Path from ALB SG to ECS task ENI on app port is reachable.
+- Costs/HA note: One NAT is cheaper but a single-AZ dependency; two NATs cost more but avoid cross-AZ data charges and single-point NAT failure.
 
 ## Security Groups
 
