@@ -1,4 +1,4 @@
-# Lab 02: Application Load Balancer
+# Lab 13: Application Load Balancer
 
 ## Objectives
 

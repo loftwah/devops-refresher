@@ -1,4 +1,4 @@
-# Lab 04: IAM for ECS
+# Lab 05: IAM for ECS
 
 ## Objectives
 

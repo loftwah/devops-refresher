@@ -49,3 +49,4 @@ variable "eks_alb_dns_name" {
   type        = string
   description = "ALB DNS name for the EKS ingress (origin)"
 }
+

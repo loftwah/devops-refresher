@@ -7,18 +7,19 @@ This repo’s labs build a staging-ready stack step by step. This document captu
 1. 00-backend-bootstrap – Create secure S3 bucket for state
 2. 00-backend-terraform-state – Configure backend + provider defaults
 3. 01-vpc – VPC, subnets, IGW/NAT, routes, flow logs (toggle)
-4. 02-alb – ALB + SGs (public)
+4. 02-vpc-endpoints – Private access (SSM, ECR, Logs, S3)
 5. 03-ecr – ECR repos, lifecycle, scanning, mirrors
-6. 04-iam – Roles for ECS/EKS/CI and least-privilege policies
-7. 05-ecs – Cluster, service, task roles, SGs, deploy sample app
-8. 06-logging-metrics – CloudWatch logs/metrics/dashboards
-9. 07-cicd – CodeStar connection, CodeBuild, CodePipeline
-10. 08-eks – Cluster, ALB Ingress, external-dns, sample app
-11. 09-dns-route53 – Hosted zone `aws.deanlofts.xyz`, records
-12. 10-parameter-store – SSM parameters and app wiring
-13. 11-fault-labs – Troubleshooting scenarios (ECS/EKS)
-14. 12-vpc-endpoints – Private access (SSM, ECR, Logs, S3)
-15. 13-cloudfront – CDN in front of ALB/S3 with TLS
+6. 04-demo-app – Create app repo(s), Dockerfile, healthz, S3 test, buildspecs
+7. 05-iam – Roles for ECS/EKS/CI and least-privilege policies
+8. 05-ecs – Cluster, service, task roles, SGs, deploy sample app
+9. 06-logging-metrics – CloudWatch logs/metrics/dashboards
+10. 07-cicd – CodeStar connection, CodeBuild, CodePipeline (Terraform in `07-cicd-infra/`)
+11. 08-eks – Cluster, ALB Ingress, external-dns, sample app
+12. 09-dns-route53 – Hosted zone `aws.deanlofts.xyz`, records
+13. 13-alb – Application Load Balancer
+14. 10-cloudfront – CDN in front of ALB/S3 with TLS
+15. 11-parameter-store – SSM parameters and app wiring
+16. 12-fault-labs – Troubleshooting scenarios (ECS/EKS)
 
 ## Cross-Cutting Decisions
 
@@ -35,3 +36,4 @@ This repo’s labs build a staging-ready stack step by step. This document captu
 - `scripts/validate-vpc.sh` – VPC acceptance checks
 - `scripts/ecs-logs.sh`, `scripts/ecs-exec.sh` – ECS troubleshooting
 - `scripts/eks-logs.sh`, `scripts/eks-exec.sh` – EKS troubleshooting
+- `scripts/validate-delegation.sh` – DNS subdomain delegation check

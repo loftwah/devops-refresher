@@ -11,7 +11,7 @@ variable "tags" {
   }
 }
 
-variable "app_name" { type = string, default = "demo-node-app" }
+variable "app_name" { type = string, default = "demo-node-app-ecs" }
 variable "app_port" { type = number, default = 3000 }
 variable "desired_count" { type = number, default = 2 }
 variable "healthcheck_path" { type = string, default = "/healthz" }
@@ -19,4 +19,3 @@ variable "healthcheck_path" { type = string, default = "/healthz" }
 variable "s3_bucket_name" { type = string, default = "devops-refresher-staging-app" }
 
 variable "image_tag" { type = string, default = "staging" }
-

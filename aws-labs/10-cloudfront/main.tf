@@ -17,10 +17,6 @@ locals {
   zone_id = var.hosted_zone_id != "" ? var.hosted_zone_id : data.aws_route53_zone.by_name[0].zone_id
 }
 
-#######################
-# ACM certificates (us-east-1)
-#######################
-
 resource "aws_acm_certificate" "ecs" {
   provider          = aws.us_east_1
   domain_name       = var.ecs_domain
@@ -79,13 +75,9 @@ resource "aws_acm_certificate_validation" "eks" {
   validation_record_fqdns = [for r in aws_route53_record.eks_cert_validation : r.fqdn]
 }
 
-#######################
-# CloudFront distributions (one per app)
-#######################
-
 locals {
-  api_cache_policy_id = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad" # Managed-CachingDisabled
-  origin_request_policy_all_viewer = "216adef6-5c7f-47e4-b989-5492eafa07d3" # AllViewerExceptHostHeader
+  api_cache_policy_id = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
+  origin_request_policy_all_viewer = "216adef6-5c7f-47e4-b989-5492eafa07d3"
 }
 
 resource "aws_cloudfront_distribution" "ecs" {
@@ -104,22 +96,20 @@ resource "aws_cloudfront_distribution" "ecs" {
   }
 
   default_cache_behavior {
-    target_origin_id       = "ecs-alb-origin"
-    viewer_protocol_policy = "redirect-to-https"
-    cache_policy_id        = local.api_cache_policy_id
+    target_origin_id         = "ecs-alb-origin"
+    viewer_protocol_policy   = "redirect-to-https"
+    cache_policy_id          = local.api_cache_policy_id
     origin_request_policy_id = local.origin_request_policy_all_viewer
-    allowed_methods        = ["GET", "HEAD", "OPTIONS", "PUT", "PATCH", "POST", "DELETE"]
-    cached_methods         = ["GET", "HEAD"]
+    allowed_methods          = ["GET", "HEAD", "OPTIONS", "PUT", "PATCH", "POST", "DELETE"]
+    cached_methods           = ["GET", "HEAD"]
   }
 
-  restrictions {
-    geo_restriction { restriction_type = "none" }
-  }
+  restrictions { geo_restriction { restriction_type = "none" } }
 
   viewer_certificate {
-    acm_certificate_arn            = aws_acm_certificate_validation.ecs.certificate_arn
-    ssl_support_method             = "sni-only"
-    minimum_protocol_version       = "TLSv1.2_2021"
+    acm_certificate_arn      = aws_acm_certificate_validation.ecs.certificate_arn
+    ssl_support_method       = "sni-only"
+    minimum_protocol_version = "TLSv1.2_2021"
   }
 
   tags = merge(var.tags, { Name = "cf-ecs" })
@@ -141,30 +131,24 @@ resource "aws_cloudfront_distribution" "eks" {
   }
 
   default_cache_behavior {
-    target_origin_id       = "eks-alb-origin"
-    viewer_protocol_policy = "redirect-to-https"
-    cache_policy_id        = local.api_cache_policy_id
+    target_origin_id         = "eks-alb-origin"
+    viewer_protocol_policy   = "redirect-to-https"
+    cache_policy_id          = local.api_cache_policy_id
     origin_request_policy_id = local.origin_request_policy_all_viewer
-    allowed_methods        = ["GET", "HEAD", "OPTIONS", "PUT", "PATCH", "POST", "DELETE"]
-    cached_methods         = ["GET", "HEAD"]
+    allowed_methods          = ["GET", "HEAD", "OPTIONS", "PUT", "PATCH", "POST", "DELETE"]
+    cached_methods           = ["GET", "HEAD"]
   }
 
-  restrictions {
-    geo_restriction { restriction_type = "none" }
-  }
+  restrictions { geo_restriction { restriction_type = "none" } }
 
   viewer_certificate {
-    acm_certificate_arn            = aws_acm_certificate_validation.eks.certificate_arn
-    ssl_support_method             = "sni-only"
-    minimum_protocol_version       = "TLSv1.2_2021"
+    acm_certificate_arn      = aws_acm_certificate_validation.eks.certificate_arn
+    ssl_support_method       = "sni-only"
+    minimum_protocol_version = "TLSv1.2_2021"
   }
 
   tags = merge(var.tags, { Name = "cf-eks" })
 }
-
-#######################
-# Route 53 aliases
-#######################
 
 resource "aws_route53_record" "ecs_alias" {
   zone_id = local.zone_id
@@ -187,3 +171,4 @@ resource "aws_route53_record" "eks_alias" {
     evaluate_target_health = false
   }
 }
+

@@ -1,4 +1,4 @@
-# Lab 10: Parameter Store (SSM)
+# Lab 11: Parameter Store (SSM)
 
 ## Objective
 

@@ -1,4 +1,4 @@
-# Lab 12: VPC Endpoints (Private Access to AWS Services)
+# Lab 02: VPC Endpoints (Private Access to AWS Services)
 
 ## Objective
 
