@@ -1,32 +1,27 @@
-# CloudFront (CDN + TLS)
+# CloudFront (Optional Theory)
 
-## Objective
+## When To Use It
 
-Front public content and services with CloudFront for performance, security, and TLS, using Route 53 for DNS.
+- Not required for this backend-only demo. Useful when you add a static frontend or need global caching/acceleration.
 
-## Patterns
+## Common Patterns
 
-- Static assets: S3 bucket as origin, OAC (Origin Access Control) to block public S3 access.
-- Dynamic app behind ALB: ALB as origin (ECS/EKS services), cache by path, protect with WAF (optional).
+- Static frontend: S3 as origin with OAC, CloudFront for TLS and caching.
+- API via ALB: CloudFront with ALB origin for edge WAF, geo policies, or custom caching; keep minimal caching for APIs.
 
-## Decisions
+## Key Decisions
 
-- Certs: ACM certificate in `us-east-1` for custom domains (CloudFront requirement).
-- DNS: records under `aws.deanlofts.xyz` (e.g., `app.aws.deanlofts.xyz`).
-- Caching: minimal caching for APIs (`Cache-Control` based), stronger for static.
+- Certificates: ACM in `us-east-1` for CloudFront distributions.
+- DNS: Route 53 alias to the CloudFront domain.
+- Security: Prefer OAC for S3 and WAF for protection if exposed globally.
 
-## Tasks (ALB origin)
+## Reference Tasks (if adopted later)
 
-1. Request/validate ACM cert in `us-east-1` for `app.aws.deanlofts.xyz` (DNS validation in Route 53).
-2. Create CloudFront distribution with ALB origin; set Origin Request Policy and Cache Policy.
-3. Add Route 53 alias record to CloudFront domain.
-
-## Acceptance Criteria
-
-- `curl -I https://app.aws.deanlofts.xyz` returns 200 via CloudFront.
-- ALB not publicly exposed by direct DNS in client paths (optional).
+1. Request/validate ACM cert in `us-east-1` for your domain.
+2. Create CloudFront distribution with S3 or ALB origin; attach suitable cache/origin request policies.
+3. Create Route 53 alias record pointing at the distribution.
 
 ## Terraform Hints
 
 - `aws_acm_certificate` (us-east-1 provider alias), `aws_cloudfront_distribution`, `aws_route53_record`.
-- For S3 origin, use OAC and bucket policy to only allow CloudFront access.
+- For S3 origin, use OAC and bucket policy to restrict access to CloudFront.

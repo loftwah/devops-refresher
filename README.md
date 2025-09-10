@@ -4,6 +4,16 @@ This repository is a comprehensive resource for mastering DevOps concepts, prepa
 
 ## 1. Coding (LeetCode / Interview Prep)
 
+## Repo Conventions
+
+- Kubernetes assets live under `kubernetes/`:
+  - `kubernetes/helm/` for Helm values and helpers
+  - `kubernetes/manifests/` for raw manifests
+  - `kubernetes/policies/` for IAM policies used by controllers
+- YAML extension: use `.yml` across the repo for consistency, except where upstream tools require specific names:
+  - Helm chart files must be `Chart.yaml` and commonly `values.yaml` as the default values file.
+  - Other YAML files (templates, manifests, values you pass with `-f`) may use `.yml`.
+
 ### How to Work
 
 - For each problem solved:

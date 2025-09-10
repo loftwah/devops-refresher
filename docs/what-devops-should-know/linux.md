@@ -1,11 +1,5 @@
 # What a Senior DevOps Engineer Should Know About Linux
 
-### Focus: Ubuntu Server and Alpine Linux in 2025
-
-> This is a single, self-contained, practical guide. No numbering of headings. No em dashes. Australian English. All examples show how to call commands, how success or failure is detected, where logs go, and how this fits real workloads on AWS.
-
----
-
 ## Why Linux matters to DevOps
 
 - Ubuntu and Alpine are the two most common bases you will meet day to day on EC2 instances and inside containers. Ubuntu fits full-fat servers with systemd, snaps, and a large ecosystem. Alpine fits tiny containers that start fast and ship fewer CVEs by design.

@@ -13,7 +13,7 @@
 
 ## Tasks
 
-1) ECS Roles
+1. ECS Roles
 
 - Task execution role (pull images, write logs):
   - Trust: `ecs-tasks.amazonaws.com`.
@@ -71,7 +71,7 @@ resource "aws_iam_role_policy_attachment" "ecs_task_runtime" {
 }
 ```
 
-2) EKS Prereqs: Cluster OIDC Provider
+2. EKS Prereqs: Cluster OIDC Provider
 
 - Create or reference the cluster OIDC provider so pods can assume roles via IRSA.
 
@@ -86,7 +86,7 @@ resource "aws_iam_openid_connect_provider" "this" {
 }
 ```
 
-3) EKS: IRSA Roles per Service Account
+3. EKS: IRSA Roles per Service Account
 
 - App runtime role (namespace `app`, service account `web`):
   - Trust: federated with the cluster OIDC provider.
@@ -150,7 +150,7 @@ metadata:
     eks.amazonaws.com/role-arn: arn:aws:iam::<acct-id>:role/eks-app-web-devops-refresher
 ```
 
-4) EKS Node Group Instance Profile
+4. EKS Node Group Instance Profile
 
 - Attach AWS-managed policies to the node role:
   - `AmazonEKSWorkerNodePolicy`
@@ -158,7 +158,7 @@ metadata:
   - `AmazonEC2ContainerRegistryReadOnly`
   - Optionally: `CloudWatchAgentServerPolicy`
 
-5) Common Controllers (if used)
+5. Common Controllers (if used)
 
 - AWS Load Balancer Controller: create an IRSA role and attach the recommended policy from the project docs.
 - ExternalDNS: read Route53 and list hosted zones (scoped to your zone IDs).

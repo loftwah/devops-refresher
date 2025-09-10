@@ -66,10 +66,10 @@ EKS only:
 
 - `deploy/eks/chart/Chart.yaml`
 - `deploy/eks/chart/values.yaml`
-- `deploy/eks/chart/templates/deployment.yaml` (probes on `/healthz`)
-- `deploy/eks/chart/templates/service.yaml`
-- `deploy/eks/chart/templates/ingress.yaml` (ALB annotations; host: `demo-node-app-eks.aws.deanlofts.xyz`)
-- `deploy/eks/chart/templates/secret.yaml` (or CSI objects)
+- `deploy/eks/chart/templates/deployment.yml` (probes on `/healthz`)
+- `deploy/eks/chart/templates/service.yml`
+- `deploy/eks/chart/templates/ingress.yml` (ALB annotations; host: `demo-node-app-eks.aws.deanlofts.xyz`)
+- `deploy/eks/chart/templates/secret.yml` (or CSI objects)
 
 ## Dockerfile
 

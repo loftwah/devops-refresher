@@ -4,6 +4,12 @@
 
 Centralize non-secret configuration in SSM Parameter Store and consume from ECS and EKS. Manage secrets in AWS Secrets Manager.
 
+## Prerequisites
+
+- For EKS: Secrets Store CSI Driver + AWS Provider installed in the cluster.
+- For EKS: IRSA role for the app service account with read permissions to the SSM path and Secrets ARNs.
+- For ECS: Task role with read permissions to the SSM path and Secrets ARNs.
+
 ## What Goes Where
 
 - SSM (non-secrets, type String):
@@ -24,7 +30,7 @@ Naming convention for both:
 
 ## Tasks
 
-1) Create SSM parameters (Terraform)
+1. Create SSM parameters (Terraform)
 
 ```hcl
 variable "env"     { type = string }
@@ -57,7 +63,7 @@ resource "aws_ssm_parameter" "app" {
 }
 ```
 
-2) Create Secrets (Terraform)
+2. Create Secrets (Terraform)
 
 ```hcl
 variable "secret_values" {
@@ -80,7 +86,7 @@ resource "aws_secretsmanager_secret_version" "app" {
 }
 ```
 
-3) Grant read access (IAM)
+3. Grant read access (IAM)
 
 Attach to the ECS task role and/or EKS IRSA role for your app:
 
@@ -190,6 +196,49 @@ spec:
 ```
 
 Ensure the service account used by the pod has IRSA permissions to read the above SSM path and Secrets ARNs.
+
+## Inputs/Outputs
+
+- Inputs (from other Terraform modules):
+  - `S3_BUCKET` from S3 module (`module.s3.bucket_name`). See `aws-labs/99-s3.md:1`.
+  - `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` from RDS module (`module.rds.db_host`, etc.). See `aws-labs/99-rds.md:1`.
+  - `REDIS_HOST`, `REDIS_PORT` from ElastiCache module (`module.redis.redis_host`, etc.). See `aws-labs/99-elasticache-redis.md:1`.
+- Static defaults (override as needed):
+  - `APP_ENV`, `LOG_LEVEL`, `PORT`, `DB_SSL`, `SELF_TEST_ON_BOOT`.
+- Secrets (populate securely in CI or via console):
+  - `DB_PASS`, `REDIS_PASS`.
+
+Example wiring of module outputs into SSM params:
+
+```hcl
+locals {
+  dynamic_params = {
+    S3_BUCKET  = module.s3.bucket_name
+    DB_HOST    = module.rds.db_host
+    DB_PORT    = tostring(module.rds.db_port)
+    DB_USER    = module.rds.db_user
+    DB_NAME    = module.rds.db_name
+    REDIS_HOST = module.redis.redis_host
+    REDIS_PORT = tostring(module.redis.redis_port)
+  }
+
+  static_params = {
+    APP_ENV           = var.env
+    LOG_LEVEL         = "info"
+    PORT              = "3000"
+    DB_SSL            = "required"
+    SELF_TEST_ON_BOOT = "false"
+  }
+}
+
+module "app_params" {
+  # or inline resources using aws_ssm_parameter as above
+  source  = "./modules/ssm-params"
+  env     = var.env
+  service = "app"
+  params  = merge(local.static_params, local.dynamic_params)
+}
+```
 
 ## Acceptance Criteria
 
