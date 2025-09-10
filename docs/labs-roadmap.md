@@ -34,6 +34,7 @@ This repo’s labs build a staging-ready stack step by step. This document captu
 
 - `scripts/validate-backend.sh` – backend checks
 - `scripts/validate-vpc.sh` – VPC acceptance checks
+- `scripts/validate-vpc-endpoints.sh` – VPC endpoints structure checks
 - `scripts/ecs-logs.sh`, `scripts/ecs-exec.sh` – ECS troubleshooting
 - `scripts/eks-logs.sh`, `scripts/eks-exec.sh` – EKS troubleshooting
 - `scripts/validate-delegation.sh` – DNS subdomain delegation check
