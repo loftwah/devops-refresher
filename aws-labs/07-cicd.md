@@ -6,9 +6,10 @@
 
 ## Tasks
 
-1. CodeBuild project with IAM role: docker build, login to ECR, push; output image URI.
-2. CodePipeline: Source → Build → Deploy (update task definition image, force deployment).
-3. Manual approval stage optional for staging.
+1. Create a CodeStar Connections connection to GitHub (one-time, requires console handshake).
+2. CodeBuild project with IAM role: docker build, login to ECR, push; output image URI.
+3. CodePipeline: Source (GitHub via Connection) → Build → Deploy (update task definition image, force deployment).
+4. Manual approval stage optional for staging.
 
 ## Acceptance Criteria
 
@@ -17,5 +18,23 @@
 
 ## Hints
 
-- For GitHub, use connection via CodeStar or set up OIDC with GitHub Actions instead.
-- Keep buildspec in repo; pin versions for reproducibility.
+- GitHub via CodeStar Connections:
+  - Terraform: `aws_codestarconnections_connection` for the logical connection object.
+  - After `apply`, complete the “Connect” handshake in the AWS Console to authorize the GitHub App and select repositories. For a user account, you must explicitly authorize the repo; for orgs, ensure the app is installed and allowed access to the repo.
+  - Source action in CodePipeline uses the Connection ARN and `FullRepositoryId` like `loftwah/devops-refresher`.
+- Alternative: Use GitHub Actions + OIDC into AWS; skip CodePipeline and call Terraform/ECR/ECS via Actions.
+- Keep buildspec in the app repo; pin tool versions for reproducibility.
+
+### Slack Notifications (Build/Pipeline)
+
+- Use EventBridge rules on CodeBuild and CodePipeline state changes to invoke your Slack notifier Lambda (see `slack-cicd-integration.md`).
+- Typical events:
+  - CodePipeline: `Execution State Change` and `Stage State Change`
+  - CodeBuild: `Build State Change`
+- Payload includes pipeline/build name, commit ID, and status; map these to Slack channels and formatting as per the notifier doc.
+
+## Repo Naming Pattern (Demo Apps)
+
+- `loftwah/demo-node-app`, `loftwah/demo-rails-app`, `loftwah/demo-go-service`.
+- Each repo contains a Dockerfile, health endpoint, and minimal app code.
+- Pipelines build/push to ECR, then deploy to ECS (and later EKS variants).

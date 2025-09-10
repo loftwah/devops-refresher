@@ -2,19 +2,54 @@
 
 ## Objectives
 
-- Create an ECR repository and push a sample image.
+- Create an ECR repository and push a sample image for staging.
+- Decide on base image sources and public registry mirroring.
+- Add a simple lifecycle policy and scanning on push.
+
+## Decisions
+
+- Private images (your apps): push to ECR private repo(s).
+- Public base images: prefer AWS ECR Public when available (fewer rate limits, regional mirrors). If you need Docker Hub or other registries, configure an ECR Pull Through Cache rule to avoid rate limits and centralize pulls.
+- Tags: use immutable tags in CI (e.g., `git-sha`), plus a moving alias (e.g., `staging`) that always points to the latest.
 
 ## Tasks
 
-1. Create `aws_ecr_repository` with image scanning on push enabled.
-2. Docker login to ECR; build a sample Nginx image; tag and push `:staging`.
-3. Optional: Add lifecycle policy to retain last 10 images.
+1. Create `aws_ecr_repository` with:
+   - `image_tag_mutability = "IMMUTABLE"` (recommended)
+   - `image_scanning_configuration { scan_on_push = true }`
+   - Optional KMS encryption (default AES256 is fine for staging)
+2. Add a lifecycle policy (retain last 10 digests and the `staging` tag): `aws_ecr_lifecycle_policy`.
+3. Docker login to ECR; build a sample image; tag and push `:staging` and `:<git-sha>`.
+4. (Optional) Configure an ECR Pull Through Cache Rule for Docker Hub or another upstream registry.
 
 ## Acceptance Criteria
 
-- `aws ecr describe-images` shows your `:staging` tag.
+- `aws ecr describe-images` shows the `:staging` tag and a recent SHA-tag.
+- Repository has on-push scanning and a lifecycle policy attached.
 
-## Hints
+## Notes on Base Images and Mirrors
 
-- Use `aws ecr get-login-password` with your profile to login.
-- Consider immutable tags and digest pinning for production.
+- Prefer using ECR Public images where possible (e.g., `public.ecr.aws/docker/library/node:20-alpine`).
+- If you need Docker Hub or ghcr.io, create a Pull Through Cache in ECR:
+  - Registry: Docker Hub → `registry-1.docker.io` (or ghcr.io)
+  - Update your Dockerfiles to pull via your ECR cache domain for consistent, rate-limit-resistant builds.
+
+## CLI Snippets
+
+Login and push:
+
+```bash
+aws ecr get-login-password --region $AWS_REGION --profile $AWS_PROFILE \
+ | docker login --username AWS --password-stdin $(aws sts get-caller-identity --query 'Account' --output text).dkr.ecr.$AWS_REGION.amazonaws.com
+
+REPO=$(aws ecr describe-repositories --repository-names demo/app --query 'repositories[0].repositoryUri' --output text)
+docker build -t demo-app:staging .
+docker tag demo-app:staging "$REPO:staging"
+docker push "$REPO:staging"
+```
+
+## Terraform Hints
+
+- `aws_ecr_repository`, `aws_ecr_lifecycle_policy`.
+- Use outputs to surface the `repository_url` for CI.
+- For CI, add a CodeBuild role with `ecr:BatchCheckLayerAvailability`, `ecr:PutImage`, `ecr:InitiateLayerUpload`, etc.

@@ -221,6 +221,7 @@ resource "aws_subnet" "public" {
 ```
 
 Notes
+
 - Use `each.key` for deterministic lookups (e.g., into a `locals` map).
 - Changing a key (e.g., `a` → `az-a`) changes the resource address and will plan a replace; avoid renaming keys casually.
 - Prefer `for_each` over `count` when items have identities (like AZ suffixes) instead of being purely positional.
@@ -255,6 +256,7 @@ cidrsubnet("10.64.0.0/16", 4, 3) # → 10.64.48.0/20 (private-b)
 ```
 
 Tips
+
 - Keep indices in `locals` keyed by AZ suffix for clarity and stability.
 - Use consistent spacing of `netnum` values to leave growth headroom (e.g., reserve future slots).
 - Validate with `terraform console` during planning:
