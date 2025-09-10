@@ -7,7 +7,7 @@ This repository is a comprehensive resource for mastering DevOps concepts, prepa
 ### How to Work
 
 - For each problem solved:
-  - Code solutions in **Ruby, Go, and Python** (to compare paradigms: Ruby for elegance, Go for concurrency, Python for simplicity).
+  - Code solutions in **Ruby, Go, Python, and TypeScript** (to compare paradigms: Ruby for elegance, Go for concurrency, Python for simplicity, TypeScript for modern web development).
   - Add **time and space complexity analysis** (Big O notation, with explanations of bottlenecks).
   - Write a short "pattern takeaway" + **real-world application** (e.g., how it applies to DevOps tools like caching in Kubernetes or load balancing algorithms).
   - Store in `leetcode/<category>/<problem>.md` with code snippets, test cases, and edge cases.
