@@ -1,5 +1,10 @@
 # Demo Applications – Requirements and Conventions
 
+## Current Implementation
+
+- Repository: https://github.com/loftwah/demo-node-app
+- Behavior: On startup, the app runs a self-test that exercises CRUD against S3, Postgres, and Redis, logging results to STDOUT. This validates connectivity, credentials, and basic data operations in each backing service.
+
 We deploy a single Node.js demo app to both ECS and EKS under different domains that match repository names:
 
 - ECS: `demo-node-app-ecs.aws.deanlofts.xyz`

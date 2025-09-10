@@ -9,7 +9,7 @@ This repo’s labs build a staging-ready stack step by step. This document captu
 3. 01-vpc – VPC, subnets, IGW/NAT, routes, flow logs (toggle)
 4. 02-vpc-endpoints – Private access (SSM, ECR, Logs, S3)
 5. 03-ecr – ECR repos, lifecycle, scanning, mirrors
-6. 04-demo-app – Single repo (TS/Express), CRUD S3/Postgres/Redis, Dockerfile, buildspecs
+6. 04-demo-app – Single repo (TS/Express), CRUD S3/Postgres/Redis, Dockerfile, buildspecs (implemented in https://github.com/loftwah/demo-node-app; includes boot-time self-test that logs CRUD across all services)
 7. 05-s3 – App bucket for object CRUD (permissions for app)
 8. 06-rds-postgres – Postgres instance + SGs
 9. 07-elasticache-redis – Redis (ElastiCache) + SGs

@@ -4,6 +4,11 @@
 
 Create a minimal TypeScript Node.js 20 web app demonstrating CRUD across S3, RDS Postgres, and ElastiCache Redis, packaged for both ECS and EKS from a single repository.
 
+## Current Implementation
+
+- Repository: https://github.com/loftwah/demo-node-app
+- Self-test: On boot, the app executes a self-test routine that performs CRUD operations against S3, Postgres, and Redis, and logs the outcomes. This provides immediate validation of runtime configuration, network access, and credentials in each environment.
+
 ## Repo strategy (single repo)
 
 ```

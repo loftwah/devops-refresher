@@ -394,6 +394,8 @@ Tradeoffs: CF for global cache vs direct LB for low latency.
 
 ## 4. Demo Applications
 
+Note: The primary Node.js demo app is implemented externally at https://github.com/loftwah/demo-node-app. On startup, it runs a self-test that exercises CRUD against S3, Postgres, and Redis and logs results to STDOUT. See `docs/demo-apps.md` for requirements and conventions.
+
 ### Deliverables
 
 - Each in `aws-labs/demo-apps/<name>/`.
