@@ -39,10 +39,12 @@ EXPOSE 3000
 CMD ["node","server.js"]
 ```
 
-Environment
+Configuration
 
-- APP_NAME, APP_ENV, S3_BUCKET
-- Optional: LOG*LEVEL, FEATURE*\* flags
+- Build vs runtime: see `docs/build-vs-runtime-config.md` for when to use Docker build args vs container env/secrets, and how to wire them in this repo.
+- Runtime env (non-secrets): `APP_NAME`, `APP_ENV`, `S3_BUCKET`; override per environment in ECS task definition (`aws-labs/05-ecs/main.tf:176`).
+- Runtime secrets: inject via ECS task `secrets` from SSM/Secrets Manager; task role already permits SSM path reads.
+- Optional: logging level and feature flags, e.g., `LOG_LEVEL`, `FEATURE_X_ENABLED`.
 
 ECS specifics
 
