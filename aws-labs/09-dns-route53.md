@@ -38,6 +38,13 @@ If your apex domain (`deanlofts.xyz`) is on Cloudflare, it’s simplest to deleg
 - Type: Public hosted zone
 - After creation, open the zone and copy the 4 NS values from the pre‑created NS record.
 
+Example (your current Route 53 NS set)
+
+- ns-136.awsdns-17.com.
+- ns-1412.awsdns-48.org.
+- ns-1623.awsdns-10.co.uk.
+- ns-630.awsdns-14.net.
+
 2. In Cloudflare (for `deanlofts.xyz`)
 
 - DNS → Add record
@@ -46,6 +53,12 @@ If your apex domain (`deanlofts.xyz`) is on Cloudflare, it’s simplest to deleg
 - Content: paste the 4 Route 53 NS values (one record each)
 - Proxy status: DNS only (not proxied)
 - TTL: Auto (or low TTL while testing)
+
+Notes for Cloudflare entry
+
+- Type: `NS`
+- Name: `aws`
+- Value: enter each nameserver as a separate NS record. Cloudflare accepts values without the trailing dot (e.g., `ns-630.awsdns-14.net`) and will normalize them.
 
 3. Verify delegation
 
@@ -69,6 +82,16 @@ Optional quick test
 2. Check from a public resolver after a few minutes:
    - `dig +short TXT whoami.aws.deanlofts.xyz @1.1.1.1`
    - Expect: `"r53-ok"`
+
+## Delegation Validator Script
+
+Use `scripts/validate-delegation.sh` to check nameserver delegation and SOA:
+
+```
+scripts/validate-delegation.sh
+```
+
+By default it validates `aws.deanlofts.xyz` against your Route 53 nameserver set. Add `--verbose` to include a `dig +trace` summary, or override with `--domain`/`--expect-ns` if you ever change them.
 
 Import to Terraform later (optional)
 
