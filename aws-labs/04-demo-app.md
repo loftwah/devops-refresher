@@ -1,32 +1,70 @@
-# Lab 04: Demo App Setup (Repositories + Buildspecs)
+# Lab 04: Demo App Setup (Single Repo + Buildspecs)
 
 ## Objective
 
-Create demo application repositories that match our naming and domain conventions, ready for ECS and EKS pipelines.
+Create a minimal TypeScript Node.js 20 web app demonstrating CRUD across S3, RDS Postgres, and ElastiCache Redis, packaged for both ECS and EKS from a single repository.
+
+## Repo strategy (single repo)
+
+```
+loftwah/demo-node-app
+├─ src/
+├─ Dockerfile
+├─ package.json
+├─ tsconfig.json
+├─ buildspec.yml           # ECS build (CodeBuild)
+├─ deploy/
+│  ├─ ecs/                # task/service notes or IaC (optional)
+│  └─ eks/
+│     └─ chart/           # Helm chart (Deployment/Service/Ingress/Secret)
+└─ docs/
+   └─ buildspecs/buildspec-ecs.yml (optional template source)
+```
 
 ## Decisions
 
-- Repos:
-  - `loftwah/demo-node-app-ecs`
-  - `loftwah/demo-node-app-eks`
 - Domains:
   - ECS: `demo-node-app-ecs.aws.deanlofts.xyz`
   - EKS: `demo-node-app-eks.aws.deanlofts.xyz`
 - Base image: `public.ecr.aws/docker/library/node:20-alpine`
-- Healthcheck: `GET /healthz` returns 200 with version JSON
-- S3 proof: `GET /s3/test` writes then reads an object at `s3://$S3_BUCKET/app/health/<ts>.txt`
-- Config: via env vars (injected by ECS task def or EKS secrets/CSI)
+- Healthcheck: `GET /healthz` → `{ status:"ok", version, services }`
+- CRUD Endpoints:
+  - S3: `POST|GET|DELETE /s3/:id` at `s3://$S3_BUCKET/app/<id>.txt`
+  - Postgres: `POST|GET|PUT|DELETE /db/items[/:id]` (table: `items(id uuid pk, name text, value jsonb, created_at timestamptz default now())`)
+  - Redis: `POST|GET|PUT|DELETE /cache/:key`
+- Config (env):
+  - Common: `APP_ENV` (default `staging`), `LOG_LEVEL`, `PORT=3000`
+  - S3: `S3_BUCKET`
+  - Postgres: `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASS`, `DB_NAME`, `DB_SSL=required|disable`
+  - Redis: `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASS`
+- Secrets delivery:
+  - ECS: Task Definition secrets
+  - EKS: Kubernetes Secrets or CSI (Secret Store)
 
-## Files to Create
+## Files to create
 
-In each repo:
+Shared for ECS/EKS:
 
-- `package.json` with scripts: `start`, `lint`
-- `server.js` (Express app with `/healthz` and `/s3/test` using AWS SDK v3)
-- `Dockerfile` (see below)
-- `.dockerignore` (node_modules, .git, logs)
-- `buildspec.yml` (copy from `docs/buildspecs/buildspec-ecs.yml` for the ECS repo)
-- For EKS repo: add a `chart/` directory with Helm chart (Deployment, Service, Ingress)
+- `package.json` (scripts: `build`, `start`, `lint`)
+- `tsconfig.json`
+- `src/server.ts` (Express):
+  - `GET /healthz` (checks S3 headBucket, DB connect, Redis ping)
+  - S3 CRUD: `POST|GET|DELETE /s3/:id`
+  - DB CRUD: `POST|GET|PUT|DELETE /db/items[/:id]` using `pg`
+  - Redis CRUD: `POST|GET|PUT|DELETE /cache/:key` using `ioredis`
+- `src/lib/aws.ts` (S3 client v3), `src/lib/db.ts` (pg pool + boot migration), `src/lib/redis.ts` (ioredis)
+- `Dockerfile` (compile TS, prune dev deps)
+- `.dockerignore` (`node_modules`, `dist`, `.git`, `logs`)
+- `buildspec.yml` (npm ci → build TS → docker build/push → `imagedefinitions.json`)
+
+EKS only:
+
+- `deploy/eks/chart/Chart.yaml`
+- `deploy/eks/chart/values.yaml`
+- `deploy/eks/chart/templates/deployment.yaml` (probes on `/healthz`)
+- `deploy/eks/chart/templates/service.yaml`
+- `deploy/eks/chart/templates/ingress.yaml` (ALB annotations; host: `demo-node-app-eks.aws.deanlofts.xyz`)
+- `deploy/eks/chart/templates/secret.yaml` (or CSI objects)
 
 ## Dockerfile
 
@@ -34,44 +72,53 @@ In each repo:
 FROM public.ecr.aws/docker/library/node:20-alpine
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci --omit=dev
-COPY . .
+RUN npm ci
+COPY tsconfig.json ./
+COPY src ./src
+RUN npm run build && npm prune --omit=dev
 ENV PORT=3000
 EXPOSE 3000
-CMD ["node","server.js"]
+CMD ["node","dist/server.js"]
 ```
 
-## Buildspec (ECS)
+## Buildspec (ECS) — summary
 
-Use `docs/buildspecs/buildspec-ecs.yml` as `buildspec.yml` in the ECS repo. It builds and pushes `:staging` and `:<git-sha>` and emits `imagedefinitions.json` for ECS deploy.
+Install deps → build TS → docker build/tag `:staging` and `:<git-sha>` → push → emit `imagedefinitions.json`.
 
 ## Helm (EKS)
 
-- Chart values: `image.repository`, `image.tag`, `service.port=3000`, `ingress.host=demo-node-app-eks.aws.deanlofts.xyz`
-- Probes on `/healthz`
+- `values.yaml`: `image.repository`, `image.tag`, `service.port=3000`, `ingress.host=demo-node-app-eks.aws.deanlofts.xyz`, env/secret refs.
+- Deployment: liveness/readiness probes on `/healthz` with sensible thresholds.
 
-## Suggested Cursor Prompt
+## Minimal DB migration
 
-Copy this into Cursor (or similar) to scaffold the repo:
+- On boot, if `items` missing, create it. Optional `SEED_DB=true` to insert demo rows.
+
+## Suggested Cursor prompt
 
 ```
-Generate a minimal Node.js 20 (alpine) web app with Docker and (for EKS) a Helm chart.
+Generate a minimal TypeScript (Node 20, Express) web app with Docker and a Helm chart.
+
 Requirements:
-- Endpoints: GET /healthz returns {status:"ok",version}; GET /s3/test writes+reads to s3://$S3_BUCKET/app/health/<ts>.txt
-- Env: APP_ENV (default "staging"), S3_BUCKET (required), LOG_LEVEL (optional)
-- Logging: stdout; PORT=3000
+- Endpoints:
+  - GET /healthz → {status:"ok",version,services}
+  - S3 CRUD at s3://$S3_BUCKET/app/<id>.txt using AWS SDK v3 (S3Client)
+  - Postgres CRUD (table items: id uuid, name text, value jsonb, created_at timestamptz) using pg
+  - Redis CRUD using ioredis
+- Env: APP_ENV (default "staging"), LOG_LEVEL, PORT=3000,
+       S3_BUCKET,
+       DB_HOST, DB_PORT, DB_USER, DB_PASS, DB_NAME, DB_SSL,
+       REDIS_HOST, REDIS_PORT, REDIS_PASS
 Files:
-- package.json (scripts: start)
-- server.js (Express; use AWS SDK v3 S3Client)
-- Dockerfile (node:20-alpine; npm ci; CMD node server.js)
-- .dockerignore (node_modules, .git, logs)
-- buildspec.yml (use the provided buildspec-ecs.yml template logic)
-- chart/ (for EKS): Chart.yaml, values.yaml, templates/deployment.yaml, service.yaml, ingress.yaml with ALB annotations
+- package.json (scripts: build, start, lint)
+- tsconfig.json
+- src/server.ts and src/lib/{aws.ts,db.ts,redis.ts}
+- Dockerfile (npm ci -> tsc -> prune dev -> node dist/server.js)
+- .dockerignore (node_modules, dist, .git, logs)
+- buildspec.yml (build TS, docker build/push, imagedefinitions.json)
+- deploy/eks/chart with Deployment/Service/Ingress/Secret; probes on /healthz
 ```
 
-## Next
+## Notes
 
-- Create the repos and push initial code.
-- Pass `github_full_repo_id` to the CI/CD lab when wiring pipelines.
-- ECS pipeline: builds and deploys to the ECS service.
-- EKS pipeline (later): kubectl/helm deploy using the EKS buildspec.
+- One repo keeps ECS and EKS deploy targets in sync and avoids code drift. Split only if teams or compliance require.

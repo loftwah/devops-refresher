@@ -9,17 +9,19 @@ This repo’s labs build a staging-ready stack step by step. This document captu
 3. 01-vpc – VPC, subnets, IGW/NAT, routes, flow logs (toggle)
 4. 02-vpc-endpoints – Private access (SSM, ECR, Logs, S3)
 5. 03-ecr – ECR repos, lifecycle, scanning, mirrors
-6. 04-demo-app – Create app repo(s), Dockerfile, healthz, S3 test, buildspecs
-7. 05-iam – Roles for ECS/EKS/CI and least-privilege policies
-8. 05-ecs – Cluster, service, task roles, SGs, deploy sample app
-9. 06-logging-metrics – CloudWatch logs/metrics/dashboards
-10. 07-cicd – CodeStar connection, CodeBuild, CodePipeline (Terraform in `07-cicd-infra/`)
-11. 08-eks – Cluster, ALB Ingress, external-dns, sample app
-12. 09-dns-route53 – Hosted zone `aws.deanlofts.xyz`, records
-13. 13-alb – Application Load Balancer
-14. 10-cloudfront – CDN in front of ALB/S3 with TLS
-15. 11-parameter-store – SSM parameters and app wiring
-16. 12-fault-labs – Troubleshooting scenarios (ECS/EKS)
+6. 04-demo-app – Single repo (TS/Express), CRUD S3/Postgres/Redis, Dockerfile, buildspecs
+7. 05-s3 – App bucket for object CRUD (permissions for app)
+8. 06-rds-postgres – Postgres instance + SGs
+9. 07-elasticache-redis – Redis (ElastiCache) + SGs
+10. 08-ecs – Cluster, service, task roles, SGs, deploy demo app
+11. 09-dns-route53 – Hosted zone `aws.deanlofts.xyz`, records
+12. 10-cicd – CodeStar connection, CodeBuild, CodePipeline (Terraform in `10-cicd-infra/`)
+13. 11-eks – Cluster, ALB Ingress, external-dns, Helm chart deploy
+14. 12-logging-metrics – CloudWatch logs/metrics/dashboards
+15. 13-alb – Application Load Balancer
+16. 14-cloudfront – CDN in front of ALB/S3 with TLS
+17. 15-parameter-store – SSM parameters and app wiring
+18. 16-fault-labs – Troubleshooting scenarios (ECS/EKS)
 
 ## Cross-Cutting Decisions
 

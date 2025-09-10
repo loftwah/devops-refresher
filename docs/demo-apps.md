@@ -18,8 +18,8 @@ Expectations
 
 Repo options
 
-- Preferred for clarity: split repos `loftwah/demo-node-app-ecs` and `loftwah/demo-node-app-eks`
-- Alternative: one repo `loftwah/demo-node-app` with two pipelines (ECS/EKS)
+- Preferred: one repo `loftwah/demo-node-app` with two deploy targets (ECS/EKS)
+- Alternative: split repos `loftwah/demo-node-app-ecs` and `loftwah/demo-node-app-eks` only if teams, cadence, or compliance boundaries require it
 
 Dockerfile baseline
 

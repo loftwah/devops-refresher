@@ -22,7 +22,7 @@
   - Terraform: `aws_codestarconnections_connection` for the logical connection object.
   - After `apply`, complete the “Connect” handshake in the AWS Console to authorize the GitHub App and select repositories. For a user account, you must explicitly authorize the repo; for orgs, ensure the app is installed and allowed access to the repo.
 - Source action in CodePipeline uses the Connection ARN and `FullRepositoryId` like `loftwah/devops-refresher`.
-  - For this lab, use `FullRepositoryId = loftwah/demo-node-app-ecs` (or your chosen repo).
+  - For this lab, use `FullRepositoryId = loftwah/demo-node-app` (single repo for ECS and EKS).
 - Alternative: Use GitHub Actions + OIDC into AWS; skip CodePipeline and call Terraform/ECR/ECS via Actions.
 - Keep buildspec in the app repo; pin tool versions for reproducibility.
 
@@ -37,5 +37,5 @@
 ## Repo Naming Pattern (Demo Apps)
 
 - `loftwah/demo-node-app`, `loftwah/demo-rails-app`, `loftwah/demo-go-service`.
-- Each repo contains a Dockerfile, health endpoint, and minimal app code.
-- Pipelines build/push to ECR, then deploy to ECS (and later EKS variants).
+- The app repo contains a Dockerfile, health endpoint, and minimal app code.
+- Pipelines build/push to ECR, then deploy to ECS; the same image/tag is used by EKS.
