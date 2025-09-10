@@ -1,8 +1,4 @@
-This lab’s documentation has moved to avoid duplication.
-
-See: `aws-labs/02-vpc-endpoints/README.md`
-
-# Lab 02: VPC Endpoints (Private Access to AWS Services)
+# VPC Endpoints (Private Access to AWS Services)
 
 Build private connectivity from your private subnets to AWS services so traffic stays inside AWS networks, reducing NAT egress and improving security.
 

@@ -1,4 +1,4 @@
-# Lab 09: Route 53 DNS (Subdomain Delegation)
+# Route 53 DNS (Subdomain Delegation)
 
 ## Objective
 

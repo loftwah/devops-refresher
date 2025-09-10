@@ -1,4 +1,4 @@
-# Lab 00: Bootstrap Terraform Backend
+# Bootstrap Terraform Backend
 
 ## Objectives
 

@@ -1,4 +1,4 @@
-# Lab 03: ECR and Image Build
+# ECR and Image Build
 
 ## Objectives
 

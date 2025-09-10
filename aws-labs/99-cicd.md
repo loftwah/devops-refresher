@@ -1,4 +1,4 @@
-# Lab 07: CI/CD for ECS
+# CI/CD for ECS
 
 ## Objectives
 

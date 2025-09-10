@@ -1,4 +1,4 @@
-# Lab 08: EKS (Kubernetes on AWS)
+# EKS (Kubernetes on AWS)
 
 ## Objectives
 

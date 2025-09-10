@@ -1,4 +1,4 @@
-# Lab 05: ECS Cluster, Task Definition, and Service
+# ECS Cluster, Task Definition, and Service
 
 ## Objectives
 

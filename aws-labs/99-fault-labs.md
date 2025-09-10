@@ -1,4 +1,4 @@
-# Lab 12: Fault Labs (Troubleshooting on ECS and EKS)
+# Fault Labs (Troubleshooting on ECS and EKS)
 
 ## Objectives
 

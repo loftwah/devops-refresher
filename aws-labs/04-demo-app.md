@@ -1,4 +1,4 @@
-# Lab 04: Demo App Setup (Single Repo + Buildspecs)
+# Demo App Setup (Single Repo + Buildspecs)
 
 ## Objective
 

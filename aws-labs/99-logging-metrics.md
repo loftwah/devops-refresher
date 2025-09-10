@@ -1,4 +1,4 @@
-# Lab 06: Logging and Metrics
+# Logging and Metrics
 
 ## Objectives
 

@@ -1,4 +1,4 @@
-# Lab 01: Networking (VPC + Subnets)
+# Networking (VPC + Subnets)
 
 Build a minimal, production-shaped VPC for staging. Keep it simple and explicit.
 

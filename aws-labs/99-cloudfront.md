@@ -1,4 +1,4 @@
-# Lab 10: CloudFront (CDN + TLS)
+# CloudFront (CDN + TLS)
 
 ## Objective
 
