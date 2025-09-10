@@ -16,17 +16,14 @@
 ## Mental model: Ubuntu vs Alpine
 
 - Init and services
-
   - Ubuntu uses **systemd** and `systemctl`. Logs live in **journald**, queried with `journalctl`. ([manpages.ubuntu.com][1])
   - Alpine uses **OpenRC**. Logs default to BusyBox **syslogd** with `logread`, or another syslog if you install one. ([wiki.alpinelinux.org][2])
 
 - C library and compatibility
-
   - Ubuntu uses **glibc**.
   - Alpine uses **musl**. Some prebuilt binaries targeting glibc will not run without compatibility layers. Prefer compiling against musl or pick a glibc-based image if you need glibc. ([wiki.alpinelinux.org][3], [wiki.musl-libc.org][4])
 
 - Package managers
-
   - Ubuntu uses **APT**. Learn `apt update`, `apt install`, and `--no-install-recommends` for lean images. ([Ubuntu][5])
   - Alpine uses **apk**. Use `apk add --no-cache` for lean layers. ([GitHub][6])
 

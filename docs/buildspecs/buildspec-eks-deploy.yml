@@ -12,7 +12,7 @@ phases:
       - aws eks update-kubeconfig --name $EKS_CLUSTER --region $AWS_DEFAULT_REGION
   build:
     commands:
-      - helm upgrade --install demo-app chart/ \
+      - helm upgrade --install demo-node-app chart/ \
         --namespace demo --create-namespace \
         --set image.repository=${IMAGE_URI%:*} \
         --set image.tag=${IMAGE_URI##*:} \
