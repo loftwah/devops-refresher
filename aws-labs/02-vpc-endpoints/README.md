@@ -71,6 +71,7 @@ How to check (Console/Terraform)
   - `enable_secretsmanager`, `enable_kms`, `enable_sts`, `enable_monitoring`, `enable_efs`, `enable_events` (bools, default false)
 
 Notes:
+
 - Service name is `com.amazonaws.${var.region}.<suffix>`; examples: `ecr.api`, `logs`, `ssm`.
 - The final set is de‑duplicated when merging the explicit list with toggles.
 
