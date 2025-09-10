@@ -119,6 +119,11 @@ Example IP scheme (leaves room to grow)
 - Optional: Capacity providers; circuit breaker; service autoscaling; exec.
 - Validate: Service steady state; targets healthy; logs present.
 
+- Runtime platform
+  - Set `runtime_platform` on the task definition: `cpu_architecture = "X86_64"|"ARM64"`, `operating_system_family = "LINUX"`.
+  - Image architecture must match. If you publish a multi-arch tag (manifest list), ECS pulls the right variant automatically.
+  - Graviton (ARM64) is cost‑efficient; verify your base image and dependencies have `arm64` builds.
+
 ## Parameters & Secrets
 
 - Required: Parameter Store (SecureString) or Secrets Manager; least-privilege policies.
@@ -264,7 +269,7 @@ When/Where/Why to use jq/yq
   - App user: run as non-root with fixed UID/GID; map in Compose/K8s if needed.
   - Entrypoint & signals: use `tini` or proper ENTRYPOINT/CMD; ensure Puma receives SIGTERM and shuts down gracefully.
   - Caching: order COPYs to maximize cache (Gemfile/Gemfile.lock first). Use BuildKit cache mounts when available.
-  - Secrets: no plaintext in Dockerfile; use BuildKit secrets for private gems; runtime secrets via env/SSM.
+  - Secrets: no plaintext in Dockerfile; use BuildKit secrets for private gems and private npm/Yarn registries; runtime secrets via env/SSM. See `docs/build-secrets-examples.md` for end-to-end snippets.
   - Assets: precompile in build stage; set `RAILS_SERVE_STATIC_FILES=1` in runtime if you serve assets directly.
   - Security: minimal packages, non-root, avoid `latest`, pin versions; scan images; consider read-only FS.
 
@@ -360,7 +365,7 @@ public/assets
 ```
 
 - Build tips
-  - Use BuildKit for speed and secrets: `DOCKER_BUILDKIT=1 docker build ...` and `--secret id=...` for private sources.
+  - Use BuildKit for speed and secrets: `DOCKER_BUILDKIT=1 docker build ...` or Buildx, and `--secret id=...` for private sources. Examples in `docs/build-secrets-examples.md` (npm, Yarn, Vite, Bundler, Webpacker).
   - Layer cache: keep Gemfile/Gemfile.lock and package manifests separate and early.
   - Use `ARG` for versions; pin minor versions for reproducible builds.
   - Prefer npm over yarn in 2025; use `npm ci` in production and `npm install` in development.

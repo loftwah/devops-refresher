@@ -2,8 +2,6 @@
 
 This repository is a comprehensive resource for mastering DevOps concepts, preparing for technical interviews, and building hands-on skills with AWS, coding, system design, and more. It’s designed for engineers looking to refresh core DevOps knowledge or ace interviews with practical, real-world applications.
 
-## 1. Coding (LeetCode / Interview Prep)
-
 ## Repo Conventions
 
 - Kubernetes assets live under `kubernetes/`:
@@ -13,6 +11,8 @@ This repository is a comprehensive resource for mastering DevOps concepts, prepa
 - YAML extension: use `.yml` across the repo for consistency, except where upstream tools require specific names:
   - Helm chart files must be `Chart.yaml` and commonly `values.yaml` as the default values file.
   - Other YAML files (templates, manifests, values you pass with `-f`) may use `.yml`.
+
+## 1. Coding (LeetCode / Interview Prep)
 
 ### How to Work
 
@@ -663,6 +663,11 @@ I've expanded this with 50+ new questions, deeper answers, and contextual detail
 - NACLs: Stateless, deny. Application: Subnet-level.
 
 ### Q18. How do you handle secret rotation?
+
+### Build-Time vs Runtime and Build Secrets
+
+- Build-time vs runtime config guidance is in `docs/build-vs-runtime-config.md`.
+- Practical Docker BuildKit secret examples (npm, Yarn, Vite, Rails/Webpacker, Bundler) are in `docs/build-secrets-examples.md`.
 
 - Secrets Manager Lambda. Application: DB creds, app reloads.
 

@@ -153,3 +153,42 @@ terraform destroy -auto-approve
 ---
 
 For the high‑level lab narrative, also see `aws-labs/03-ecr.md`.
+
+## Multi‑Architecture Builds (ARM64 and x86_64)
+
+Why: ECS Fargate supports both `ARM64` and `X86_64`. You can either publish a single‑arch image that matches your task’s CPU architecture or publish a multi‑arch manifest so a single tag works across both.
+
+Option A — Single‑arch build (match your Fargate tasks)
+
+```bash
+# Build for ARM64 only (Apple Silicon, Graviton)
+docker buildx build --platform linux/arm64 -t "$REPO:staging" --push .
+
+# Or build for x86_64 only (Intel/AMD)
+docker buildx build --platform linux/amd64 -t "$REPO:staging" --push .
+```
+
+Option B — Multi‑arch manifest (one tag for both)
+
+```bash
+# Build and push both variants under a single tag using Buildx
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  -t "$REPO:staging" \
+  --push .
+```
+
+Notes
+
+- Ensure base images support both architectures (e.g., `public.ecr.aws/docker/library/node:20-alpine`).
+- Cross‑building on x86 for ARM (or vice versa) uses emulation; native builders are faster. In CI, add QEMU (see `docs/build-secrets-examples.md`).
+- With a multi‑arch tag, ECS pulls the correct image based on your task definition `cpuArchitecture`.
+
+Validate
+
+```bash
+# Inspect manifest list locally
+docker buildx imagetools inspect "$REPO:staging"
+
+# Confirm ECS tasks pull successfully when runtime_platform cpuArchitecture matches
+```
