@@ -2,6 +2,16 @@
 
 Build a minimal, production-shaped VPC for staging. Keep it simple and explicit.
 
+## Decisions (Locked)
+
+- Region/AZs: `ap-southeast-2` → `2a`, `2b`
+- VPC CIDR (non-default): `10.64.0.0/16`
+- Subnets (/20s):
+  - Public-a: `10.64.0.0/20`, Public-b: `10.64.16.0/20`
+  - Private-a: `10.64.32.0/20`, Private-b: `10.64.48.0/20`
+- Flow Logs: wired but OFF by default (CloudWatch Logs when enabled)
+- Tag baseline: `Environment=staging`, `ManagedBy=Terraform` (+ add `Project/Owner/CostCenter` as needed)
+
 ## Objectives
 
 - Create one VPC with 2 public and 2 private subnets across two AZs.
@@ -124,3 +134,55 @@ Recommended state keys (path → purpose)
 - `staging/alb/terraform.tfstate` → ALB + Security Groups
 - `staging/ecr/terraform.tfstate` → ECR
 - `staging/ecs/terraform.tfstate` → ECS Cluster/Service/Tasks
+
+## Pre-flight Checks (Document, Don’t Skip)
+
+Before creating anything, inventory existing VPCs and check usage/limits to avoid clashes:
+
+Quick inventory
+
+```bash
+# List all VPCs (count + IDs, whether default)
+aws ec2 describe-vpcs \
+  --query 'Vpcs[].{VpcId:VpcId,Cidr:CidrBlock,IsDefault:IsDefault,State:State}' \
+  --output table
+
+# Count
+aws ec2 describe-vpcs --query 'length(Vpcs[])'
+
+# For each VPC, see if DNS is on
+aws ec2 describe-vpc-attribute --vpc-id <vpc-id> --attribute enableDnsSupport
+aws ec2 describe-vpc-attribute --vpc-id <vpc-id> --attribute enableDnsHostnames
+```
+
+“Are we using these VPCs?” sanity checks
+
+```bash
+# Any ENIs in each VPC (proxy for activity)
+aws ec2 describe-network-interfaces \
+  --filters "Name=vpc-id,Values=<vpc-id>" \
+  --query 'NetworkInterfaces[].{Id:NetworkInterfaceId,Status:Status,Subnet:SubnetId,Description:Description}' \
+  --output table
+
+# Instances by VPC
+aws ec2 describe-instances \
+  --filters "Name=vpc-id,Values=<vpc-id>" \
+  --query 'Reservations[].Instances[].{Id:InstanceId,State:State.Name,Subnet:SubnetId}' \
+  --output table
+
+# NAT GWs / IGWs present
+aws ec2 describe-nat-gateways --filter "Name=vpc-id,Values=<vpc-id>" --query 'NatGateways[].NatGatewayId'
+aws ec2 describe-internet-gateways --filters "Name=attachment.vpc-id,Values=<vpc-id>" --query 'InternetGateways[].InternetGatewayId'
+
+# Subnets in each VPC
+aws ec2 describe-subnets --filters "Name=vpc-id,Values=<vpc-id>" \
+  --query 'Subnets[].{Id:SubnetId,CIDR:CidrBlock,AZ:AvailabilityZone,PublicMapIp:MapPublicIpOnLaunch}' \
+  --output table
+
+# Flow Logs on/off
+aws ec2 describe-flow-logs --filter "Name=resource-id,Values=<vpc-id>" \
+  --query 'FlowLogs[].{Id:FlowLogId,Status:FlowLogStatus,Dest:LogDestination,Format:LogFormat}' \
+  --output table
+```
+
+Note: You do not need to run these as part of the lab to pass; they’re here to validate limits and avoid CIDR collisions if you already have VPCs.

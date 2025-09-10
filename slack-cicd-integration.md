@@ -604,19 +604,16 @@ Repo‑specific rebuild steps (staging):
 ## Runbook (Deploy, Update, Test, Rollback)
 
 - First‑time deploy (staging):
-
   - In `staging/cicd/lambda-slack-notifier/`, set `slack_webhook_url` in `terraform.tfvars` (or reference an SSM param if migrating to SSM).
   - Run: `terraform init && terraform apply`.
   - Capture outputs: `lambda_function_arn`, `lambda_function_name`.
   - In each `staging/cicd/<app>/`, provide those two values (via TF var mechanism) and `terraform apply` to create the subscription + permission.
 
 - Updating code:
-
   - Edit `src/slack_notifier.py` (and any deps under `src/`).
   - Re‑apply: `terraform apply` in `staging/cicd/lambda-slack-notifier/` (the archive hash changes and Lambda updates).
 
 - Testing:
-
   - Console test: Use sample payloads in `staging/cicd/lambda-slack-notifier/test/*.json` from the Lambda Console’s “Test” tab.
   - End‑to‑end: Manually release a pipeline; watch CloudWatch logs and Slack channel.
 

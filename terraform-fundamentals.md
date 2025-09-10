@@ -161,6 +161,105 @@ resource "aws_s3_bucket" "example" {
 - Use variables for inputs coming from outside the module.
 - Use locals for derived or reusable expressions inside the module.
 
+## Maps, Tags, and `merge()`
+
+- Maps in Terraform are key/value collections commonly used for tags and settings.
+- `merge(map1, map2, ...)` returns a new map containing all keys from the inputs. If the same key exists in multiple maps, the later map’s value wins.
+
+Why it matters for tags
+
+- You often have a baseline tag set (from a variable or local) and want to overlay a resource-specific `Name` or environment tweak.
+- Example:
+
+```hcl
+variable "tags" {
+  type = map(string)
+  default = {
+    Owner       = "platform-team"
+    Project     = "example"
+    Environment = "staging"
+    ManagedBy   = "Terraform"
+  }
+}
+
+resource "aws_s3_bucket" "example" {
+  bucket = "example-staging-bucket"
+  tags   = merge(var.tags, { Name = "example-staging-bucket" })
+}
+```
+
+- Precedence: If `var.tags` already had a `Name`, the `{ Name = ... }` on the right overrides it.
+- Provider `default_tags` apply to all resources; explicit `tags = ...` at the resource will be merged with defaults. Use `merge()` to ensure your `Name` is present while keeping baseline tags.
+
+Related helpers we use
+
+- `for_each` with maps: iterate deterministically over keys/values to create multiple resources (e.g., subnets per AZ).
+- `cidrsubnet(prefix, newbits, index)`: carve child CIDRs from a parent block in a predictable way.
+- Tip: Keep addressing rules in locals, and use maps for `for_each` so lookups are explicit and readable.
+
+## `for_each` (Iterating Resources Deterministically)
+
+- Purpose: Create multiple instances of a resource from a map or set, with stable addressing by key.
+- Why maps: Keys become part of the resource address (e.g., `aws_subnet.public["a"]`), avoiding accidental replacements caused by index shifts.
+
+Example (subnets per AZ, like in the VPC stack):
+
+```hcl
+variable "azs" {
+  type    = map(string)
+  default = { a = "ap-southeast-2a", b = "ap-southeast-2b" }
+}
+
+resource "aws_subnet" "public" {
+  for_each              = var.azs
+  vpc_id                = aws_vpc.main.id
+  availability_zone     = each.value
+  cidr_block            = cidrsubnet(var.vpc_cidr, 4, local.public_subnet_indices[each.key])
+  map_public_ip_on_launch = true
+  tags = merge(var.tags, { Name = "staging-public-${each.key}" })
+}
+```
+
+Notes
+- Use `each.key` for deterministic lookups (e.g., into a `locals` map).
+- Changing a key (e.g., `a` → `az-a`) changes the resource address and will plan a replace; avoid renaming keys casually.
+- Prefer `for_each` over `count` when items have identities (like AZ suffixes) instead of being purely positional.
+
+Outputs with for-expressions
+
+```hcl
+output "public_subnet_ids" {
+  value = [for s in aws_subnet.public : s.id]
+}
+```
+
+## `cidrsubnet()` (Carving Subnets Predictably)
+
+- Signature: `cidrsubnet(prefix, newbits, netnum)`
+  - `prefix`: Parent CIDR (e.g., `10.64.0.0/16`)
+  - `newbits`: How many extra bits to add to the mask (e.g., `4` to go from /16 to /20)
+  - `netnum`: Which child block to select (0-based index)
+
+Example (from our VPC):
+
+```hcl
+locals {
+  public_subnet_indices  = { a = 0, b = 1 }
+  private_subnet_indices = { a = 2, b = 3 }
+}
+
+cidrsubnet("10.64.0.0/16", 4, 0) # → 10.64.0.0/20  (public-a)
+cidrsubnet("10.64.0.0/16", 4, 1) # → 10.64.16.0/20 (public-b)
+cidrsubnet("10.64.0.0/16", 4, 2) # → 10.64.32.0/20 (private-a)
+cidrsubnet("10.64.0.0/16", 4, 3) # → 10.64.48.0/20 (private-b)
+```
+
+Tips
+- Keep indices in `locals` keyed by AZ suffix for clarity and stability.
+- Use consistent spacing of `netnum` values to leave growth headroom (e.g., reserve future slots).
+- Validate with `terraform console` during planning:
+  - `> cidrsubnet("10.64.0.0/16", 4, 1)`
+
 Combined usage example:
 
 ```hcl
@@ -226,6 +325,93 @@ output "storage_bucket_name" {
   value = module.storage.bucket_name
 }
 ```
+
+## For-Expressions (Lists and Maps)
+
+- Build lists and maps from other collections; supports filtering.
+
+List (IDs from resources):
+
+```hcl
+output "private_subnet_ids" {
+  value = [for s in aws_subnet.private : s.id]
+}
+```
+
+Filtered list:
+
+```hcl
+locals {
+  public_ids = [for s in aws_subnet.subnets : s.id if s.map_public_ip_on_launch]
+}
+```
+
+Map from resources:
+
+```hcl
+output "subnet_cidrs_by_az" {
+  value = { for k, s in aws_subnet.public : k => s.cidr_block }
+}
+```
+
+## Count vs for_each
+
+- Prefer `for_each` for identity-stable items (e.g., AZ keys `a`, `b`).
+- Use `count` for simple toggles or fixed cardinality.
+
+```hcl
+resource "aws_flow_log" "vpc" {
+  count = var.enable_flow_logs ? 1 : 0
+  # ...
+}
+```
+
+## Conditionals and Toggles
+
+- Conditional: `cond ? x : y`
+- Use `try()` to safely read optional attrs: `try(obj.attr, null)`
+- Use `coalesce()` to pick first non-null value.
+
+## Depends-On and Creation Order
+
+- Graph handles most ordering. Add `depends_on` only for AWS quirks or implicit deps.
+
+```hcl
+resource "aws_nat_gateway" "this" {
+  # ...
+  depends_on = [aws_internet_gateway.this]
+}
+```
+
+## Remote State Data
+
+Reference outputs from another stack (e.g., VPC → ECS):
+
+```hcl
+data "terraform_remote_state" "vpc" {
+  backend = "s3"
+  config = {
+    bucket = "tf-state-<account>-<region>"
+    key    = "staging/network/terraform.tfstate"
+    region = "us-east-1"
+  }
+}
+
+locals {
+  vpc_id             = data.terraform_remote_state.vpc.outputs.vpc_id
+  private_subnet_ids = data.terraform_remote_state.vpc.outputs.private_subnet_ids
+}
+```
+
+## Type Helpers
+
+- `toset()`, `tolist()` conversions; `distinct()`, `compact()`, `flatten()` utilities.
+- `coalesce()`/`coalescelist()` pick first non-null/non-empty.
+
+## Debugging Aids
+
+- `terraform console` to evaluate expressions interactively.
+- `terraform show -json` for tooling; `terraform state list|show` for current objects.
 
 ## Plans, Applies, and Safe Iteration
 
