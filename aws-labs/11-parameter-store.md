@@ -6,8 +6,8 @@ Centralize non-secret configuration in SSM Parameter Store and consume from ECS 
 
 ## Prerequisites
 
-- For EKS: Secrets Store CSI Driver + AWS Provider installed in the cluster.
-- For EKS: IRSA role for the app service account with read permissions to the SSM path and Secrets ARNs.
+- For EKS (option A — ESO): External Secrets Operator installed. Grant IRSA to the ESO controller ServiceAccount with read permissions to the SSM paths and Secret ARNs you sync.
+- For EKS (option B — CSI): Secrets Store CSI Driver + AWS Provider installed. Grant IRSA to the app ServiceAccount with read permissions to the SSM paths and Secret ARNs.
 - For ECS: Task role with read permissions to the SSM path and Secrets ARNs.
 
 ## What Goes Where
@@ -130,7 +130,7 @@ secrets = [
 ]
 ```
 
-EKS (IRSA + Secrets Store CSI Driver):
+EKS (Option B — IRSA + Secrets Store CSI Driver):
 
 - Sync SSM parameters and Secrets into a Kubernetes Secret, then `envFrom` it.
 
@@ -197,12 +197,16 @@ spec:
 
 Ensure the service account used by the pod has IRSA permissions to read the above SSM path and Secrets ARNs.
 
+EKS (Option A — External Secrets Operator):
+
+- Define a `ClusterSecretStore` or `SecretStore` for AWS and grant IRSA to the ESO controller ServiceAccount. Then create an `ExternalSecret` to sync SSM/Secrets Manager into a Kubernetes Secret. The app uses `envFrom` that Secret. In this pattern, the app ServiceAccount does not need AWS permissions.
+
 ## Inputs/Outputs
 
 - Inputs (from other Terraform modules):
-  - `S3_BUCKET` from S3 module (`module.s3.bucket_name`). See `aws-labs/99-s3.md:1`.
-  - `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` from RDS module (`module.rds.db_host`, etc.). See `aws-labs/99-rds.md:1`.
-  - `REDIS_HOST`, `REDIS_PORT` from ElastiCache module (`module.redis.redis_host`, etc.). See `aws-labs/99-elasticache-redis.md:1`.
+  - `S3_BUCKET` from S3 module (`module.s3.bucket_name`). See `aws-labs/08-s3.md:1`.
+  - `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` from RDS module (`module.rds.db_host`, etc.). See `aws-labs/09-rds.md:1`.
+  - `REDIS_HOST`, `REDIS_PORT` from ElastiCache module (`module.redis.redis_host`, etc.). See `aws-labs/10-elasticache-redis.md:1`.
 - Static defaults (override as needed):
   - `APP_ENV`, `LOG_LEVEL`, `PORT`, `DB_SSL`, `SELF_TEST_ON_BOOT`.
 - Secrets (populate securely in CI or via console):

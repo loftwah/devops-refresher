@@ -2,6 +2,13 @@
 
 This repository is a comprehensive resource for mastering DevOps concepts, preparing for technical interviews, and building hands-on skills with AWS, coding, system design, and more. It’s designed for engineers looking to refresh core DevOps knowledge or ace interviews with practical, real-world applications.
 
+Architecture Decisions
+
+- `docs/decisions/ADR-000-environments.md` — single staging environment defaults
+- `docs/decisions/ADR-001-alb-tls-termination.md` — TLS at ALB, redirects, DNS/ACM
+- `docs/decisions/ADR-002-secrets-and-config.md` — secrets vs. config strategy
+- `docs/decisions/ADR-003-security-groups.md` — SG structure and rationale
+
 ## Repo Conventions
 
 - Kubernetes assets live under `kubernetes/`:

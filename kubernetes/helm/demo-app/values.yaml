@@ -1,0 +1,58 @@
+replicaCount: 1
+
+image:
+  repository: public.ecr.aws/docker/library/nginx
+  tag: "stable"
+  pullPolicy: IfNotPresent
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+podAnnotations: {}
+podLabels: {}
+
+service:
+  type: ClusterIP
+  port: 80
+
+resources: {}
+
+nodeSelector: {}
+affinity: {}
+tolerations: []
+
+# Explicit env vars (used when externalSecrets.enabled=false)
+env: []
+# - name: LOG_LEVEL
+#   value: info
+
+# External Secrets Operator integration
+externalSecrets:
+  enabled: false
+  # Name of the Secret ESO will create and the Deployment will envFrom
+  targetSecretName: demo-app-env
+  refreshInterval: 1h
+  # Reference an existing ClusterSecretStore or SecretStore
+  storeRef:
+    kind: ClusterSecretStore
+    name: aws-parameterstore
+  # Pull a whole prefix from SSM/Secrets Manager
+  dataFrom: []
+  #   - extract:
+  #       key: /devops-refresher/staging/app
+  # Pull specific keys
+  data: []
+  #   - secretKey: DB_PASS
+  #     remoteRef:
+  #       key: /devops-refresher/staging/app/DB_PASS
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80

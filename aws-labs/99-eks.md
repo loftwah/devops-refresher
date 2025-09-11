@@ -173,6 +173,8 @@ Notes:
 - The upstream provider docs commonly use `kubectl apply` with a static manifest. Helm unifies lifecycle and drift management but requires a chart source; either vendor the manifests or use a maintained chart.
 - Regardless of method, the provider service account must have the IRSA role annotation.
 
+- External Secrets Operator (recommended for env vars): see Lab 15 (aws-labs/15-eks-external-secrets.md) for the IRSA role/policy and end-to-end steps. With ESO, the controller reads from AWS and syncs into a Secret; application pods `envFrom` that Secret and typically don’t need AWS permissions.
+
 Verification:
 
 - `kubectl -n kube-system get ds -l app=secrets-store-csi-driver` shows nodes scheduled.
@@ -185,6 +187,61 @@ Verification:
 
 - Create Namespace, ServiceAccount (IRSA for app), Deployment, Service, and Ingress annotated for ALB. See ALB lab for Ingress example.
 - Use Secrets Store CSI Driver to materialize SSM Parameter Store values and Secrets Manager secrets into a K8s Secret, then `envFrom` it. See Parameter Store lab for a full example.
+
+5. Security Groups for Pods (use app_sg)
+
+- Goal: Reuse the shared `app_sg` from Lab 07 for EKS pods so only the ALB can reach the app port.
+- Prereq: AWS VPC CNI add-on with Security Groups for Pods enabled (CRD present).
+  - Verify: `kubectl get crd securitygrouppolicies.vpcresources.k8s.aws`
+- Get the shared SG ID from Lab 07:
+
+```bash
+APP_SG_ID=$(cd ../07-security-groups && terraform output -raw app_sg_id)
+echo "$APP_SG_ID"
+```
+
+- Apply a SecurityGroupPolicy that selects your pods by label and attaches `app_sg`:
+
+```yaml
+# kubernetes/manifests/sgp-app.yml
+apiVersion: vpcresources.k8s.aws/v1beta1
+kind: SecurityGroupPolicy
+metadata:
+  name: app-sg
+  namespace: demo
+spec:
+  podSelector:
+    matchLabels:
+      app: demo-node-app
+  securityGroups:
+    groupIds:
+      - ${APP_SG_ID} # staging-app from Lab 07
+```
+
+- Ensure your Deployment uses the matching label and namespace:
+
+```yaml
+# excerpt from Deployment
+metadata:
+  name: demo-node-app
+  namespace: demo
+  labels:
+    app: demo-node-app
+spec:
+  selector:
+    matchLabels:
+      app: demo-node-app
+  template:
+    metadata:
+      labels:
+        app: demo-node-app
+```
+
+Notes
+
+- ALB uses `alb_sg`; pods use `app_sg`. Lab 07 already allows the container port only from `alb_sg` to `app_sg`.
+- AWS Load Balancer Controller registers pod IPs (target type `ip`) so the ALB → pods path honors these SGs.
+- If the CRD is missing, upgrade/install the VPC CNI add-on with Security Groups for Pods enabled.
 
 ## Acceptance Criteria
 
