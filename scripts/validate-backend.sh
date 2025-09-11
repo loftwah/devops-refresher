@@ -88,7 +88,7 @@ main() {
   # Extract backend S3 region directly from backend.tf to avoid region mismatch
   BACKEND_REGION=""
   if [[ -f "$STATE_DIR/backend.tf" ]]; then
-    BACKEND_REGION=$(awk '/backend\s+"s3"\s*{/,/}/ { if ($1=="region") { gsub(/"/, "", $3); print $3 } }' "$STATE_DIR/backend.tf" || true)
+    BACKEND_REGION=$(awk '/backend[[:space:]]*"s3"[[:space:]]*{/,/}/ { if ($1=="region") { gsub(/"/, "", $3); print $3 } }' "$STATE_DIR/backend.tf" || true)
   fi
   [[ -n "$BACKEND_REGION" ]] && info "Using S3 backend region: $BACKEND_REGION"
 
