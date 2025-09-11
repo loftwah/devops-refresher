@@ -17,6 +17,9 @@ info() { printf "${C_INFO}[INFO]${C_RESET} %s\n" "$*"; }
 ok()   { printf "${C_OK}[ OK ]${C_RESET} %s\n" "$*"; }
 err()  { printf "${C_FAIL}[FAIL]${C_RESET} %s\n" "$*"; }
 
+# Allow Ctrl-C (SIGINT) and TERM to stop the whole run immediately
+trap 'echo; err "Interrupted"; exit 130' INT TERM
+
 # Preferred execution order; skip if a script is missing.
 PREFERRED=(
   validate-vpc.sh

@@ -88,6 +88,7 @@ main() {
   # Extract backend S3 region directly from backend.tf to avoid region mismatch
   BACKEND_REGION=""
   if [[ -f "$STATE_DIR/backend.tf" ]]; then
+    # POSIX whitespace to locate backend block's region
     BACKEND_REGION=$(awk '/backend[[:space:]]*"s3"[[:space:]]*{/,/}/ { if ($1=="region") { gsub(/"/, "", $3); print $3 } }' "$STATE_DIR/backend.tf" || true)
   fi
   [[ -n "$BACKEND_REGION" ]] && info "Using S3 backend region: $BACKEND_REGION"
@@ -109,7 +110,7 @@ main() {
   fi
 
   # 4) Check backend config contains lockfile usage
-  if grep -q 'backend\s\+"s3"' "$STATE_DIR/backend.tf" && grep -q 'use_lockfile\s*=\s*true' "$STATE_DIR/backend.tf"; then
+  if grep -Eq 'backend[[:space:]]*"s3"' "$STATE_DIR/backend.tf" && grep -Eq 'use_lockfile[[:space:]]*=[[:space:]]*true' "$STATE_DIR/backend.tf"; then
     ok "Backend configured with lockfile"
   else
     err "Backend not configured with lockfile in: $STATE_DIR/backend.tf"; exit 1
@@ -127,3 +128,4 @@ main() {
 }
 
 main "$@"
+
