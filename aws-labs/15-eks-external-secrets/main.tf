@@ -5,7 +5,10 @@ locals {
 data "aws_iam_policy_document" "trust" {
   statement {
     actions = ["sts:AssumeRoleWithWebIdentity"]
-    principals { type = "Federated" identifiers = [var.oidc_provider_arn] }
+    principals {
+      type        = "Federated"
+      identifiers = [var.oidc_provider_arn]
+    }
     condition {
       test     = "StringEquals"
       variable = "${local.oidc_sub}:sub"
@@ -53,4 +56,3 @@ resource "aws_iam_role_policy_attachment" "attach" {
   role       = aws_iam_role.eso.name
   policy_arn = aws_iam_policy.read.arn
 }
-
