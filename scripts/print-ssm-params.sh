@@ -55,37 +55,56 @@ fi
 echo "[ssm-dump] Path: $PARAM_PATH" >&2
 
 echo
-echo "== Table =="
-# Pretty table of Name and Value
+echo "== Table (SSM) =="
+# Pretty table of Name and Value from SSM (non-secrets)
 # shellcheck disable=SC2145
-# First, check if any parameters exist; if not, exit 0 with a note
-COUNT=$(aws ssm get-parameters-by-path \
+SSM_COUNT=$(aws ssm get-parameters-by-path \
   --path "$PARAM_PATH" \
   --with-decryption \
   --recursive \
   --query 'length(Parameters)' \
   --output text ${AWS_ARGS[@]:-} 2>/dev/null || echo 0)
-if [[ "$COUNT" == "0" || -z "$COUNT" || "$COUNT" == "None" ]]; then
-  echo "(no parameters found under $PARAM_PATH)" 
-  exit 0
+if [[ "$SSM_COUNT" == "0" || -z "$SSM_COUNT" || "$SSM_COUNT" == "None" ]]; then
+  echo "(no SSM parameters found under $PARAM_PATH)"
+else
+  aws ssm get-parameters-by-path \
+    --path "$PARAM_PATH" \
+    --with-decryption \
+    --recursive \
+    --query 'Parameters[].{Name:Name,Value:Value}' \
+    --output table ${AWS_ARGS[@]:-}
 fi
 
-aws ssm get-parameters-by-path \
-  --path "$PARAM_PATH" \
-  --with-decryption \
-  --recursive \
-  --query 'Parameters[].{Name:Name,Value:Value}' \
-  --output table ${AWS_ARGS[@]:-}
-
 echo
-echo "== KEY=VALUE =="
-# KEY=VALUE using the last path segment for KEY
-# Use text output (tab-separated) then format with awk
+echo "== KEY=VALUE (SSM + Secrets) =="
+# SSM: KEY=VALUE using the last path segment for KEY
 # shellcheck disable=SC2145
-aws ssm get-parameters-by-path \
-  --path "$PARAM_PATH" \
-  --with-decryption \
-  --recursive \
-  --query 'Parameters[].{Name:Name,Value:Value}' \
-  --output text ${AWS_ARGS[@]:-} | \
-awk '{name=$1; $1=""; sub(/^ /,""); split(name,parts,"/"); key=parts[length(parts)]; print key"="$0}'
+if [[ "$SSM_COUNT" != "0" && -n "$SSM_COUNT" && "$SSM_COUNT" != "None" ]]; then
+  aws ssm get-parameters-by-path \
+    --path "$PARAM_PATH" \
+    --with-decryption \
+    --recursive \
+    --query 'Parameters[].{Name:Name,Value:Value}' \
+    --output text ${AWS_ARGS[@]:-} | \
+  awk '{name=$1; $1=""; sub(/^ /,""); split(name,parts,"/"); key=parts[length(parts)]; print key"="$0}'
+fi
+
+# Secrets Manager: include DB_PASS and others under the same prefix
+# Show real values by default; set MASK_SECRETS=1 to mask
+SECRETS_NAMES=$(aws secretsmanager list-secrets \
+  --filters Key=name,Values="$PARAM_PATH/" \
+  --query 'SecretList[].Name' \
+  --output text ${AWS_ARGS[@]:-} 2>/dev/null | tr '\t' '\n' | grep -E "^${PARAM_PATH}/" || true)
+if [[ -z "$SECRETS_NAMES" ]]; then
+  :
+else
+  while IFS= read -r sec; do
+    key=${sec##*/}
+    if [[ "${MASK_SECRETS:-0}" == "1" || "${MASK_SECRETS:-false}" == "true" ]]; then
+      printf "%s=%s\n" "$key" "******"
+    else
+      val=$(aws secretsmanager get-secret-value --secret-id "$sec" --query SecretString --output text ${AWS_ARGS[@]:-} 2>/dev/null || echo "")
+      printf "%s=%s\n" "$key" "$val"
+    fi
+  done <<< "$SECRETS_NAMES"
+fi

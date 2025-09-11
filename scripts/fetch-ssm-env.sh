@@ -78,9 +78,27 @@ done < <(
     --output text ${AWS_ARGS[@]:-} | awk '{print $1"\t"$2}'
 )
 
-# Print exported keys for visibility
+# Export secrets under the same prefix (e.g., DB_PASS)
+SECRETS_NAMES=$(aws secretsmanager list-secrets \
+  --filters Key=name,Values="$PARAM_PATH/" \
+  --query 'SecretList[].Name' \
+  --output text ${AWS_ARGS[@]:-} 2>/dev/null | tr '\t' '\n' | grep -E "^${PARAM_PATH}/" || true)
+if [[ -n "$SECRETS_NAMES" ]]; then
+  while IFS= read -r sec; do
+    key=${sec##*/}
+    val=$(aws secretsmanager get-secret-value --secret-id "$sec" --query SecretString --output text ${AWS_ARGS[@]:-} 2>/dev/null || echo "")
+    export "$key"="$val"
+  done <<< "$SECRETS_NAMES"
+fi
+
+# Print exported keys for visibility (mark secrets)
 echo "[fetch-ssm-env] Exported keys from $PARAM_PATH:" >&2
 aws ssm get-parameters-by-path \
   --path "$PARAM_PATH" \
   --query 'Parameters[*].Name' \
   --output text ${AWS_ARGS[@]:-} | tr '\t' '\n' | sed 's#.*/##' >&2
+if [[ -n "$SECRETS_NAMES" ]]; then
+  while IFS= read -r sec; do
+    echo "${sec##*/} (secret)" >&2
+  done <<< "$SECRETS_NAMES"
+fi
