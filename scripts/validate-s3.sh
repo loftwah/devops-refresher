@@ -8,9 +8,15 @@ set -Eeuo pipefail
 ROOT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")"/.. && pwd)
 S3_DIR="$ROOT_DIR/aws-labs/08-s3"
 
-info() { printf "[INFO] %s\n" "$*"; }
-ok()   { printf "[ OK ] %s\n" "$*"; }
-err()  { printf "[FAIL] %s\n" "$*"; }
+# Basic colored output (respects NO_COLOR and non-TTY)
+if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
+  C_RESET="\033[0m"; C_INFO="\033[36m"; C_OK="\033[32m"; C_FAIL="\033[31m"
+else
+  C_RESET=""; C_INFO=""; C_OK=""; C_FAIL=""
+fi
+info() { printf "${C_INFO}[INFO]${C_RESET} %s\n" "$*"; }
+ok()   { printf "${C_OK}[ OK ]${C_RESET} %s\n" "$*"; }
+err()  { printf "${C_FAIL}[FAIL]${C_RESET} %s\n" "$*"; }
 require() { command -v "$1" >/dev/null 2>&1 || { err "Required command '$1' not found"; exit 1; }; }
 
 AWS_PROFILE_EFFECTIVE="${AWS_PROFILE:-}"
@@ -101,4 +107,3 @@ main() {
 }
 
 main "$@"
-

@@ -4,9 +4,15 @@ set -Eeuo pipefail
 ROOT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")"/.. && pwd)
 EP_DIR="$ROOT_DIR/aws-labs/02-vpc-endpoints"
 
-info() { printf "[INFO] %s\n" "$*"; }
-ok()   { printf "[ OK ] %s\n" "$*"; }
-err()  { printf "[FAIL] %s\n" "$*"; }
+# Basic colored output (respects NO_COLOR and non-TTY)
+if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
+  C_RESET="\033[0m"; C_INFO="\033[36m"; C_OK="\033[32m"; C_FAIL="\033[31m"
+else
+  C_RESET=""; C_INFO=""; C_OK=""; C_FAIL=""
+fi
+info() { printf "${C_INFO}[INFO]${C_RESET} %s\n" "$*"; }
+ok()   { printf "${C_OK}[ OK ]${C_RESET} %s\n" "$*"; }
+err()  { printf "${C_FAIL}[FAIL]${C_RESET} %s\n" "$*"; }
 
 require() { command -v "$1" >/dev/null 2>&1 || { err "Required command '$1' not found"; exit 1; }; }
 
@@ -88,9 +94,8 @@ check_gateway_s3() {
     return 0
   fi
   local id service type
-  read -r id service type < <(aws_cli ec2 describe-vpc-endpoints 
-    --filters "Name=vpc-id,Values=$VPC_ID" "Name=service-name,Values=com.amazonaws.${AWS_REGION_EFFECTIVE}.s3" \
-    --query 'VpcEndpoints[0].[VpcEndpointId,ServiceName,VpcEndpointType]' --output text || true)
+  # Avoid multiline parsing edge-cases by keeping this on one logical line
+  read -r id service type < <(aws_cli ec2 describe-vpc-endpoints --filters "Name=vpc-id,Values=$VPC_ID" "Name=service-name,Values=com.amazonaws.${AWS_REGION_EFFECTIVE}.s3" --query 'VpcEndpoints[0].[VpcEndpointId,ServiceName,VpcEndpointType]' --output text || true)
   [[ "$id" != "None" && -n "$id" ]] || { err "S3 gateway endpoint not found"; exit 1; }
   [[ "$type" == "Gateway" ]] || { err "S3 endpoint is not type Gateway (got: $type)"; exit 1; }
   ok "S3 gateway endpoint present: $id"
@@ -105,10 +110,8 @@ check_interface_endpoints() {
   local suffix svc id type dns_enabled subnets sgs
   for suffix in "${EXPECTED_INTERFACE_SUFFIXES[@]}"; do
     svc="com.amazonaws.${AWS_REGION_EFFECTIVE}.${suffix}"
-    read -r id type dns_enabled subnets sgs < <(aws_cli ec2 describe-vpc-endpoints \
-      --filters "Name=vpc-id,Values=$VPC_ID" "Name=service-name,Values=$svc" \
-      --query 'VpcEndpoints[0].[VpcEndpointId,VpcEndpointType,PrivateDnsEnabled,SubnetIds,Groups[].GroupId]' \
-      --output text || true)
+    # Keep to one logical line to avoid subshell parsing issues
+    read -r id type dns_enabled subnets sgs < <(aws_cli ec2 describe-vpc-endpoints --filters "Name=vpc-id,Values=$VPC_ID" "Name=service-name,Values=$svc" --query 'VpcEndpoints[0].[VpcEndpointId,VpcEndpointType,PrivateDnsEnabled,SubnetIds,Groups[].GroupId]' --output text || true)
     [[ "$id" != "None" && -n "$id" ]] || { err "Interface endpoint missing: $suffix"; exit 1; }
     [[ "$type" == "Interface" ]] || { err "Endpoint $suffix wrong type: $type"; exit 1; }
     [[ "$dns_enabled" == "True" ]] || { err "Endpoint $suffix PrivateDnsEnabled is False"; exit 1; }

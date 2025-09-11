@@ -5,9 +5,15 @@ ROOT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")"/.. && pwd)
 BOOTSTRAP_DIR="$ROOT_DIR/aws-labs/00-backend-bootstrap"
 STATE_DIR="$ROOT_DIR/aws-labs/00-backend-terraform-state"
 
-info() { printf "[INFO] %s\n" "$*"; }
-ok()   { printf "[ OK ] %s\n" "$*"; }
-err()  { printf "[FAIL] %s\n" "$*"; }
+# Basic colored output (respects NO_COLOR and non-TTY)
+if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
+  C_RESET="\033[0m"; C_INFO="\033[36m"; C_OK="\033[32m"; C_FAIL="\033[31m"
+else
+  C_RESET=""; C_INFO=""; C_OK=""; C_FAIL=""
+fi
+info() { printf "${C_INFO}[INFO]${C_RESET} %s\n" "$*"; }
+ok()   { printf "${C_OK}[ OK ]${C_RESET} %s\n" "$*"; }
+err()  { printf "${C_FAIL}[FAIL]${C_RESET} %s\n" "$*"; }
 
 require() {
   command -v "$1" >/dev/null 2>&1 || { err "Required command '$1' not found"; exit 1; }
@@ -15,16 +21,20 @@ require() {
 
 parse_args() {
   PROFILE_FROM_ARGS=""
+  REGION_FROM_ARGS=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
       -p|--profile)
         PROFILE_FROM_ARGS="$2"; shift 2 ;;
+      -r|--region)
+        REGION_FROM_ARGS="$2"; shift 2 ;;
       --bucket)
         BUCKET_OVERRIDE="$2"; shift 2 ;;
       -h|--help)
         cat <<EOF
-Usage: $(basename "$0") [--profile NAME] [--bucket NAME]
+Usage: $(basename "$0") [--profile NAME] [--region NAME] [--bucket NAME]
   --profile, -p   AWS profile name to use for AWS CLI checks
+  --region,  -r   AWS region to use for AWS CLI checks
   --bucket        Override bucket name (skip reading Terraform output)
 EOF
         exit 0 ;;
@@ -35,12 +45,11 @@ EOF
 }
 
 aws_cli() {
-  # Wrapper to pass --profile if available
-  if [[ -n "${AWS_PROFILE_EFFECTIVE:-}" ]]; then
-    aws --profile "$AWS_PROFILE_EFFECTIVE" "$@"
-  else
-    aws "$@"
-  fi
+  # Wrapper to pass --profile/--region if available
+  local region_flag=( ) profile_flag=( )
+  [[ -n "${AWS_REGION_EFFECTIVE:-}" ]] && region_flag=(--region "$AWS_REGION_EFFECTIVE")
+  [[ -n "${AWS_PROFILE_EFFECTIVE:-}" ]] && profile_flag=(--profile "$AWS_PROFILE_EFFECTIVE")
+  aws "${profile_flag[@]}" "${region_flag[@]}" "$@"
 }
 
 main() {
@@ -65,18 +74,27 @@ main() {
 
   info "Discovered state bucket: $BUCKET"
 
-  # Determine AWS profile to use for CLI checks: args > env > providers.tf default
-  PROFILE_DEFAULT=""
+  # Determine AWS profile and region to use for CLI checks: args > env > providers.tf default
+  PROFILE_DEFAULT=""; REGION_DEFAULT=""
   if [[ -f "$STATE_DIR/providers.tf" ]]; then
     PROFILE_DEFAULT=$(awk '/variable "aws_profile"/,/}/ { if ($1=="default") { gsub(/"/, "", $3); print $3 } }' "$STATE_DIR/providers.tf" || true)
+    REGION_DEFAULT=$(awk '/variable "aws_region"/,/}/ { if ($1=="default") { gsub(/"/, "", $3); print $3 } }' "$STATE_DIR/providers.tf" || true)
   fi
   AWS_PROFILE_EFFECTIVE="${PROFILE_FROM_ARGS:-${AWS_PROFILE:-$PROFILE_DEFAULT}}"
-  if [[ -n "$AWS_PROFILE_EFFECTIVE" ]]; then
-    info "Using AWS profile: $AWS_PROFILE_EFFECTIVE"
+  AWS_REGION_EFFECTIVE="${REGION_FROM_ARGS:-${AWS_REGION:-${AWS_DEFAULT_REGION:-$REGION_DEFAULT}}}"
+  [[ -n "$AWS_PROFILE_EFFECTIVE" ]] && info "Using AWS profile: $AWS_PROFILE_EFFECTIVE"
+  [[ -n "$AWS_REGION_EFFECTIVE"  ]] && info "Using AWS region:  $AWS_REGION_EFFECTIVE"
+
+  # Extract backend S3 region directly from backend.tf to avoid region mismatch
+  BACKEND_REGION=""
+  if [[ -f "$STATE_DIR/backend.tf" ]]; then
+    BACKEND_REGION=$(awk '/backend\s+"s3"\s*{/,/}/ { if ($1=="region") { gsub(/"/, "", $3); print $3 } }' "$STATE_DIR/backend.tf" || true)
   fi
+  [[ -n "$BACKEND_REGION" ]] && info "Using S3 backend region: $BACKEND_REGION"
 
   # 2) Validate S3 bucket exists
-  if aws_cli s3api head-bucket --bucket "$BUCKET" >/dev/null 2>&1; then
+  # Always target S3 API calls at the backend region to handle env region mismatches
+  if aws_cli s3api head-bucket --bucket "$BUCKET" ${BACKEND_REGION:+--region "$BACKEND_REGION"} >/dev/null 2>&1; then
     ok "S3 bucket exists"
   else
     err "S3 bucket missing: $BUCKET"; exit 1
@@ -84,7 +102,7 @@ main() {
 
   # 3) Validate backend state object exists
   KEY="global/s3/terraform.tfstate"
-  if aws_cli s3api head-object --bucket "$BUCKET" --key "$KEY" >/dev/null 2>&1; then
+  if aws_cli s3api head-object --bucket "$BUCKET" --key "$KEY" ${BACKEND_REGION:+--region "$BACKEND_REGION"} >/dev/null 2>&1; then
     ok "State object exists: s3://$BUCKET/$KEY"
   else
     err "State object missing: s3://$BUCKET/$KEY. Did you run 'terraform init' in the state dir?"; exit 1

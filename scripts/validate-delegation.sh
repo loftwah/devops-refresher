@@ -5,9 +5,15 @@ set -Eeuo pipefail
 # Usage:
 #   validate-delegation.sh --domain aws.deanlofts.xyz [--expect-ns ns1,ns2,...] [--resolver 1.1.1.1] [--verbose]
 
-info() { printf "[INFO] %s\n" "$*"; }
-ok()   { printf "[ OK ] %s\n" "$*"; }
-err()  { printf "[FAIL] %s\n" "$*"; }
+# Basic colored output (respects NO_COLOR and non-TTY)
+if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
+  C_RESET="\033[0m"; C_INFO="\033[36m"; C_OK="\033[32m"; C_FAIL="\033[31m"
+else
+  C_RESET=""; C_INFO=""; C_OK=""; C_FAIL=""
+fi
+info() { printf "${C_INFO}[INFO]${C_RESET} %s\n" "$*"; }
+ok()   { printf "${C_OK}[ OK ]${C_RESET} %s\n" "$*"; }
+err()  { printf "${C_FAIL}[FAIL]${C_RESET} %s\n" "$*"; }
 
 # Defaults for this repo
 DOMAIN="aws.deanlofts.xyz"
