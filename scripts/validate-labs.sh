@@ -29,7 +29,6 @@ PREFERRED=(
   validate-rds.sh
   validate-redis.sh
   validate-ssm-params.sh
-  validate-dns-records.sh
   validate-backend.sh
   validate-iam.sh
   validate-delegation.sh
