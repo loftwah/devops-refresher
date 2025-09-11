@@ -35,13 +35,14 @@ data "terraform_remote_state" "redis" {
 }
 
 locals {
-  s3_bucket_effective   = length(var.s3_bucket) > 0 ? var.s3_bucket : data.terraform_remote_state.s3.outputs.bucket_name
-  db_host_effective     = length(var.db_host) > 0 ? var.db_host : data.terraform_remote_state.rds.outputs.db_host
-  db_port_effective     = var.db_port > 0 ? var.db_port : tonumber(data.terraform_remote_state.rds.outputs.db_port)
-  db_user_effective     = length(var.db_user) > 0 ? var.db_user : data.terraform_remote_state.rds.outputs.db_user
-  db_name_effective     = length(var.db_name) > 0 ? var.db_name : data.terraform_remote_state.rds.outputs.db_name
-  redis_host_effective  = length(var.redis_host) > 0 ? var.redis_host : data.terraform_remote_state.redis.outputs.redis_host
-  redis_port_effective  = var.redis_port > 0 ? var.redis_port : tonumber(data.terraform_remote_state.redis.outputs.redis_port)
+  s3_bucket_effective  = length(var.s3_bucket) > 0 ? var.s3_bucket : data.terraform_remote_state.s3.outputs.bucket_name
+  db_host_effective    = length(var.db_host) > 0 ? var.db_host : data.terraform_remote_state.rds.outputs.db_host
+  db_port_effective    = var.db_port > 0 ? var.db_port : tonumber(data.terraform_remote_state.rds.outputs.db_port)
+  db_user_effective    = length(var.db_user) > 0 ? var.db_user : data.terraform_remote_state.rds.outputs.db_user
+  db_name_effective    = length(var.db_name) > 0 ? var.db_name : data.terraform_remote_state.rds.outputs.db_name
+  redis_host_effective = length(var.redis_host) > 0 ? var.redis_host : data.terraform_remote_state.redis.outputs.redis_host
+  # Default to 6379 if the redis lab state does not export `redis_port`
+  redis_port_effective = var.redis_port > 0 ? var.redis_port : try(tonumber(data.terraform_remote_state.redis.outputs.redis_port), 6379)
 
   params = {
     APP_ENV           = var.env

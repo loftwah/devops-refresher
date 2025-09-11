@@ -57,7 +57,7 @@ variable "redis_port" {
 variable "secret_values" {
   description = "Secret key/values for Secrets Manager"
   type        = map(string)
-  default     = {
+  default = {
     DB_PASS    = null
     REDIS_PASS = null
   }
