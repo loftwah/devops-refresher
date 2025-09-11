@@ -200,9 +200,9 @@ Ensure the service account used by the pod has IRSA permissions to read the abov
 ## Inputs/Outputs
 
 - Inputs (from other Terraform modules):
-  - `S3_BUCKET` from S3 module (`module.s3.bucket_name`). See `aws-labs/99-s3.md:1`.
-  - `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` from RDS module (`module.rds.db_host`, etc.). See `aws-labs/99-rds.md:1`.
-  - `REDIS_HOST`, `REDIS_PORT` from ElastiCache module (`module.redis.redis_host`, etc.). See `aws-labs/99-elasticache-redis.md:1`.
+  - `S3_BUCKET` from S3 module (`module.s3.bucket_name`). See `aws-labs/08-s3.md:1`.
+  - `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` from RDS module (`module.rds.db_host`, etc.). See `aws-labs/09-rds.md:1`.
+  - `REDIS_HOST`, `REDIS_PORT` from ElastiCache module (`module.redis.redis_host`, etc.). See `aws-labs/10-elasticache-redis.md:1`.
 - Static defaults (override as needed):
   - `APP_ENV`, `LOG_LEVEL`, `PORT`, `DB_SSL`, `SELF_TEST_ON_BOOT`.
 - Secrets (populate securely in CI or via console):

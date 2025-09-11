@@ -55,6 +55,32 @@
 - Terraform cannot create its own remote backend before initialization. The one-time bootstrap keeps your main flow as plain `terraform init` and `terraform apply` without special flags.
 - This lab targets Terraform v1.13.1. DynamoDB-based locking is deprecated in this version and replaced by backend lockfiles. If you must use DynamoDB locking, run with Terraform 1.9.x and switch the backend block accordingly.
 
+## Don’t Skip the Backend
+
+- Always initialize with the configured S3 backend. Skipping the backend (`terraform init -backend=false`) is not acceptable for day-to-day work in this repo because it can create local state, cause drift, and break cross-stack `terraform_remote_state` reads.
+- CI, shared environments, and team workflows assume remote state, locking, and consistent outputs. Keep all `init/validate/plan/apply` wired to S3.
+
+## Troubleshooting and Local-Only Checks
+
+In rare, constrained environments (e.g., no network access on a dev machine) you may want to do a quick syntax check without contacting AWS. If—and only if—you need an isolated syntax/lint check:
+
+- You may run `terraform validate` after a one-time `terraform init -backend=false` strictly for local parsing checks. Do not run `plan` or `apply` in this mode. Do not commit any generated local state.
+- Before returning to normal work, clean any accidental local state: remove `.terraform/` and `terraform.tfstate*`, then run a full `terraform init -reconfigure` with the S3 backend.
+
+Examples:
+
+- Local-only parse check (air-gapped):
+  - `terraform init -backend=false -input=false`
+  - `terraform validate`
+- Restore proper backend afterwards:
+  - `rm -rf .terraform terraform.tfstate terraform.tfstate.backup` (if present)
+  - `terraform init -reconfigure`
+
+Common init/validate errors and fixes:
+
+- Invalid single-argument block definition: Multi-attribute blocks (e.g., `variable`) must be multi-line. Expand attributes onto separate lines.
+- Missing attribute separator in object literals: Use one attribute per line or add commas/newlines between attributes in inline objects.
+
 ## Verify Remotely Stored State
 
 - **State file in S3:** Check the object under key `global/s3/terraform.tfstate` in the bucket output by bootstrap.

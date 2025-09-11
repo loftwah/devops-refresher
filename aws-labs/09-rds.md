@@ -47,7 +47,7 @@ resource "aws_db_instance" "postgres" {
   allocated_storage       = 20
   db_name                 = var.db_name
   username                = var.db_user
-  password                = var.db_password # or use Secrets Manager + rotation
+  password                = local.db_password_effective
   db_subnet_group_name    = aws_db_subnet_group.this.name
   vpc_security_group_ids  = [aws_security_group.rds.id]
   publicly_accessible     = false
@@ -63,10 +63,32 @@ output "db_host" { value = aws_db_instance.postgres.address }
 output "db_port" { value = aws_db_instance.postgres.port }
 output "db_name" { value = aws_db_instance.postgres.db_name }
 output "db_user" { value = aws_db_instance.postgres.username }
+output "db_password_secret_arn" { value = aws_secretsmanager_secret.db_password.arn }
 ```
 
 ## Acceptance Criteria
 
 - RDS instance available in private subnets.
 - Only app SG allowed inbound on 5432.
-- Outputs present for host, port, db name, and user.
+- Outputs present for host, port, db name, user, and password secret ARN.
+
+## Variables, Defaults, and Non-Interactive Applies
+
+- This lab is non-interactive. Provide values via `*.auto.tfvars` files or explicit `-var` flags.
+- Terraform automatically loads:
+  - `terraform.tfvars` and `terraform.tfvars.json`
+  - Any `*.auto.tfvars` and `*.auto.tfvars.json` files (lexicographic order)
+- We include `staging.auto.tfvars` as an example. You can add `development.auto.tfvars` and `production.auto.tfvars` for other environments. Use full names like `development`, `staging`, and `production`.
+- Recommended naming for DB values:
+  - `db_name`: include service and environment, e.g., `app_staging` or `devops_refresher_app_staging`
+  - `db_user`: app-scoped user per env, e.g., `app_user_staging`
+
+## Secrets Handling
+
+- If `var.db_password` is not set, a strong password is generated and stored in Secrets Manager at `/devops-refresher/${var.env}/${var.service}/DB_PASS`.
+- The secret ARN is output as `db_password_secret_arn` for consumers like ECS to reference directly.
+
+## Parameter Store (Next Lab)
+
+- Lab 11 reads RDS outputs via `terraform_remote_state` and writes non-secrets (DB host/port/user/name) to SSM Parameter Store.
+- It does not overwrite the DB password secret created here; it can create other secrets if provided.

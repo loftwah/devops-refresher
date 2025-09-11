@@ -1,0 +1,16 @@
+apiVersion: vpcresources.k8s.aws/v1beta1
+kind: SecurityGroupPolicy
+metadata:
+  name: app-sg
+  namespace: demo
+spec:
+  podSelector:
+    matchLabels:
+      app: demo-node-app
+  securityGroups:
+    groupIds:
+      # Replace with the app_sg ID from Lab 07, e.g. sg-0123456789abcdef0
+      # You can fetch it with:
+      #   cd aws-labs/07-security-groups && terraform output -raw app_sg_id
+      - REPLACE_WITH_APP_SG_ID
+

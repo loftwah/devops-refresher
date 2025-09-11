@@ -15,7 +15,7 @@ provider "aws" {
   default_tags {
     tags = {
       Owner       = "Dean Lofts"
-      Environment = "Development"
+      Environment = "staging"
       Project     = "devops-refresher"
       App         = "devops-refresher"
       ManagedBy   = "Terraform"
