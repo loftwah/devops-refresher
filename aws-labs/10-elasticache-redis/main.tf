@@ -62,4 +62,7 @@ resource "aws_elasticache_replication_group" "this" {
   security_group_ids         = [aws_security_group.redis.id]
   at_rest_encryption_enabled = true
   transit_encryption_enabled = true
+
+  # Note: ElastiCache creates can take ~5–15 minutes.
+  # See docs/terraform-apply-troubleshooting.md for guidance on durations and troubleshooting.
 }

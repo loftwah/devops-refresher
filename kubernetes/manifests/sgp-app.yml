@@ -13,4 +13,3 @@ spec:
       # You can fetch it with:
       #   cd aws-labs/07-security-groups && terraform output -raw app_sg_id
       - REPLACE_WITH_APP_SG_ID
-

@@ -37,6 +37,7 @@ terraform apply \
 ```
 
 Notes:
+
 - Values default from remote state via `terraform_remote_state`; the long `-var` form is optional.
 - In most cases you can simply run: `terraform apply -auto-approve`.
 - Override any value by passing `-var` or by providing `*.auto.tfvars` files.

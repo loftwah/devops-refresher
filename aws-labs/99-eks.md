@@ -236,6 +236,7 @@ spec:
 ```
 
 Notes
+
 - ALB uses `alb_sg`; pods use `app_sg`. Lab 07 already allows the container port only from `alb_sg` to `app_sg`.
 - AWS Load Balancer Controller registers pod IPs (target type `ip`) so the ALB → pods path honors these SGs.
 - If the CRD is missing, upgrade/install the VPC CNI add-on with Security Groups for Pods enabled.
