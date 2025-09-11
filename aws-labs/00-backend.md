@@ -81,6 +81,45 @@ Common init/validate errors and fixes:
 - Invalid single-argument block definition: Multi-attribute blocks (e.g., `variable`) must be multi-line. Expand attributes onto separate lines.
 - Missing attribute separator in object literals: Use one attribute per line or add commas/newlines between attributes in inline objects.
 
+## Troubleshooting: S3 State Lock (412 PreconditionFailed)
+
+- Symptom: `terraform apply` (or `plan/init`) prints an error while acquiring the lock and fails with an S3 412 response. Example:
+
+```
+Acquiring state lock. This may take a few moments...
+Error: Error acquiring the state lock
+
+Error message: operation error S3: PutObject, https response error StatusCode: 412, ...
+api error PreconditionFailed: At least one of the pre-conditions you specified did not hold
+Lock Info:
+  ID:        d1da81a4-c10a-59aa-2473-9ddbcdcbb01f
+  Path:      tf-state-139294524816-us-east-1/staging/rds/terraform.tfstate
+  Operation: OperationTypeApply
+  Who:       <host>
+  Version:   1.13.1
+  Created:   <timestamp>
+```
+
+- Cause: Terraform v1.13 uses an S3 lockfile object to coordinate access. An interrupted run (e.g., Ctrl-C, crash, network blip) can leave a stale lockfile behind, causing a 412 until cleared.
+
+- Resolve safely:
+  - Run from the stack directory that failed (e.g., `aws-labs/09-rds`):
+    - `terraform force-unlock -force <ID>`
+  - If the CLI cannot unlock, delete the lock object directly, then re-init:
+    - S3 key: the state key with `.tflock` suffix (e.g., `staging/rds/terraform.tfstate.tflock`)
+    - `aws s3api delete-object --bucket <bucket> --key <state-key>.tflock --profile <profile>`
+    - `terraform init -reconfigure`
+
+- What success looks like:
+  - Force unlock:
+    - `Terraform state has been successfully unlocked!`
+  - Next apply acquires a new lock and proceeds without error.
+
+- Prevent recurrence:
+  - Avoid killing Terraform mid-run; let it exit gracefully.
+  - Don’t use `-lock=false` in shared environments.
+  - If multiple users/automation may collide, set `-lock-timeout=5m` to wait for the existing lock.
+
 ## Verify Remotely Stored State
 
 - **State file in S3:** Check the object under key `global/s3/terraform.tfstate` in the bucket output by bootstrap.

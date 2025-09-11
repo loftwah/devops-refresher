@@ -1,5 +1,14 @@
-variable "aws_profile" { description = "AWS profile" type = string default = "devops-sandbox" }
-variable "region"       { description = "AWS region"  type = string default = "ap-southeast-2" }
+variable "aws_profile" {
+  description = "AWS profile"
+  type        = string
+  default     = "devops-sandbox"
+}
+
+variable "region" {
+  description = "AWS region"
+  type        = string
+  default     = "ap-southeast-2"
+}
 variable "tags" {
   description = "Base tags"
   type        = map(string)
@@ -15,12 +24,16 @@ variable "tags" {
 provider "aws" {
   region  = var.region
   profile = var.aws_profile
-  default_tags { tags = var.tags }
+  default_tags {
+    tags = var.tags
+  }
 }
 
 terraform {
   required_providers {
-    aws = { source = "hashicorp/aws" version = ">= 5.0" }
+    aws = {
+      source  = "hashicorp/aws"
+      version = ">= 5.0"
+    }
   }
 }
-

@@ -22,3 +22,8 @@ Suggested order (high-level):
 ## Backend and State
 
 - All labs use a shared S3 backend for Terraform state with lockfile-based locking. Do not skip the backend during normal usage. See `aws-labs/00-backend.md` for guidance, troubleshooting, and why remote state is mandatory here.
+
+## Secrets vs Parameters
+
+- Non-secrets (like database host, port, user, and name) are published as Terraform outputs and written to SSM Parameter Store.
+- Secrets (like database password) are created and managed in AWS Secrets Manager by the owning stack (for example, the RDS stack writes `/devops-refresher/{env}/{service}/DB_PASS`). Downstream stacks and workloads consume the secret via its ARN.

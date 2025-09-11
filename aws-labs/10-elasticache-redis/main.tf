@@ -49,12 +49,14 @@ resource "aws_security_group_rule" "from_app_sg" {
 }
 
 resource "aws_elasticache_replication_group" "this" {
-  replication_group_id       = "staging-app-redis"
-  description                = "Redis for app"
-  engine                     = "redis"
-  engine_version             = "7.0"
-  node_type                  = var.node_type
-  number_cache_clusters      = 1
+  replication_group_id = "staging-app-redis"
+  description          = "Redis for app"
+  engine               = "redis"
+  engine_version       = "7.0"
+  node_type            = var.node_type
+  # Terraform AWS provider v5 removed number_cache_clusters; use these instead
+  num_node_groups            = 1
+  replicas_per_node_group    = 0
   automatic_failover_enabled = false
   subnet_group_name          = aws_elasticache_subnet_group.this.name
   security_group_ids         = [aws_security_group.redis.id]

@@ -88,6 +88,19 @@ output "db_password_secret_arn" { value = aws_secretsmanager_secret.db_password.
 - If `var.db_password` is not set, a strong password is generated and stored in Secrets Manager at `/devops-refresher/${var.env}/${var.service}/DB_PASS`.
 - The secret ARN is output as `db_password_secret_arn` for consumers like ECS to reference directly.
 
+## Inputs Consumed and Sources
+
+- VPC ID and private subnet IDs: read from the VPC stack’s remote state using `terraform_remote_state`.
+- App security group ID (source of inbound): read from the Security Groups stack’s remote state.
+- Optional overrides: You can override any of the above via tfvars, but the default is to consume values from remote state for consistency.
+
+## Consumers and How They Use Outputs
+
+- Parameter Store: reads non-secrets from this stack’s outputs (DB host, port, name, user) and writes SSM parameters for the application.
+- Application/workloads (ECS/EKS):
+  - Read non-secrets from SSM parameters populated by the Parameter Store stack.
+  - Read the database password via Secrets Manager using `db_password_secret_arn` in container/task definitions or pod manifests.
+
 ## Parameter Store (Next Lab)
 
 - Lab 11 reads RDS outputs via `terraform_remote_state` and writes non-secrets (DB host/port/user/name) to SSM Parameter Store.
