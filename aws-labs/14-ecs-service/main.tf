@@ -58,6 +58,18 @@ data "terraform_remote_state" "iam" {
   }
 }
 
+data "terraform_remote_state" "ecr" {
+  backend = "s3"
+  config = {
+    bucket       = "tf-state-139294524816-us-east-1"
+    key          = "staging/ecr/terraform.tfstate"
+    region       = "us-east-1"
+    profile      = "devops-sandbox"
+    use_lockfile = true
+    encrypt      = true
+  }
+}
+
 locals {
   container_name            = var.service_name
   cluster_arn_effective      = length(var.cluster_arn) > 0 ? var.cluster_arn : data.terraform_remote_state.cluster.outputs.cluster_arn
@@ -66,6 +78,7 @@ locals {
   target_group_arn_effective = length(var.target_group_arn) > 0 ? var.target_group_arn : data.terraform_remote_state.alb.outputs.tg_arn
   exec_role_arn_effective    = length(var.execution_role_arn) > 0 ? var.execution_role_arn : data.terraform_remote_state.iam.outputs.execution_role_arn
   task_role_arn_effective    = length(var.task_role_arn) > 0 ? var.task_role_arn : data.terraform_remote_state.iam.outputs.task_role_arn
+  image_effective            = length(var.image) > 0 ? var.image : "${data.terraform_remote_state.ecr.outputs.repository_url}:staging"
 }
 
 resource "aws_ecs_task_definition" "app" {
@@ -80,7 +93,7 @@ resource "aws_ecs_task_definition" "app" {
   container_definitions = jsonencode([
     {
       name      = local.container_name,
-      image     = var.image,
+      image     = local.image_effective,
       essential = true,
       portMappings = [{ containerPort = var.container_port, hostPort = var.container_port, protocol = "tcp" }],
       logConfiguration = {

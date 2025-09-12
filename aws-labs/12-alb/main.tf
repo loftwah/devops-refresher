@@ -1,3 +1,9 @@
+// Module behavior overview
+// - Inputs are optional and follow precedence: explicit variable > remote state output.
+// - This allows fully non-interactive applies when prior labs have been applied
+//   (VPC in Lab 01, Security Groups in Lab 07), while still permitting overrides.
+// - Fargate compatibility: target group uses target_type = "ip" and health check on /healthz.
+
 data "terraform_remote_state" "vpc" {
   backend = "s3"
   config = {
@@ -10,15 +16,29 @@ data "terraform_remote_state" "vpc" {
   }
 }
 
+data "terraform_remote_state" "sg" {
+  backend = "s3"
+  config = {
+    bucket       = "tf-state-139294524816-us-east-1"
+    key          = "staging/security-groups/terraform.tfstate"
+    region       = "us-east-1"
+    profile      = "devops-sandbox"
+    use_lockfile = true
+    encrypt      = true
+  }
+}
+
 locals {
   vpc_id_effective            = length(var.vpc_id) > 0 ? var.vpc_id : data.terraform_remote_state.vpc.outputs.vpc_id
   public_subnet_ids_effective = length(var.public_subnet_ids) > 0 ? var.public_subnet_ids : data.terraform_remote_state.vpc.outputs.public_subnet_ids
+  alb_sg_id_effective         = length(var.alb_sg_id) > 0 ? var.alb_sg_id : data.terraform_remote_state.sg.outputs.alb_sg_id
+  certificate_domain_effective = length(var.certificate_domain_name) > 0 ? var.certificate_domain_name : var.record_name
 }
 
 resource "aws_lb" "app" {
   name               = "staging-app-alb"
   load_balancer_type = "application"
-  security_groups    = [var.alb_sg_id]
+  security_groups    = [local.alb_sg_id_effective]
   subnets            = local.public_subnet_ids_effective
 }
 
@@ -48,7 +68,7 @@ data "aws_route53_zone" "this" {
 
 # ACM certificate with DNS validation
 resource "aws_acm_certificate" "this" {
-  domain_name       = var.certificate_domain_name
+  domain_name       = local.certificate_domain_effective
   validation_method = "DNS"
 }
 

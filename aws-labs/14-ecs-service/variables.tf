@@ -13,6 +13,7 @@ variable "service_name" {
 variable "image" {
   description = "Container image"
   type        = string
+  default     = ""
 }
 
 variable "container_port" {

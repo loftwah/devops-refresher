@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+# Deploys Lab 14 (ECS Service)
+# - Discovers cluster, subnets, SGs, target group, IAM roles from prior labs via tf outputs
+# - Requires container image (ECR URL with tag), defaults to :staging for demo-node-app if discoverable
+
+ROOT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")"/.. && pwd)
+LAB_DIR="$ROOT_DIR/aws-labs/14-ecs-service"
+VPC_DIR="$ROOT_DIR/aws-labs/01-vpc"
+SG_DIR="$ROOT_DIR/aws-labs/07-security-groups"
+ALB_DIR="$ROOT_DIR/aws-labs/12-alb"
+IAM_DIR="$ROOT_DIR/aws-labs/06-iam"
+CLUSTER_DIR="$ROOT_DIR/aws-labs/13-ecs-cluster"
+ECR_DIR="$ROOT_DIR/aws-labs/03-ecr"
+
+# Basic colored output
+if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
+  C_RESET="\033[0m"; C_INFO="\033[36m"; C_OK="\033[32m"; C_FAIL="\033[31m"
+else
+  C_RESET=""; C_INFO=""; C_OK=""; C_FAIL=""
+fi
+info() { printf "${C_INFO}[INFO]${C_RESET} %s\n" "$*"; }
+ok()   { printf "${C_OK}[ OK ]${C_RESET} %s\n" "$*"; }
+err()  { printf "${C_FAIL}[FAIL]${C_RESET} %s\n" "$*"; }
+require() { command -v "$1" >/dev/null 2>&1 || { err "Required command '$1' not found"; exit 1; }; }
+
+IMAGE=""
+DESIRED_COUNT=1
+CONTAINER_PORT=3000
+
+parse_args() {
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -i|--image) IMAGE="$2"; shift 2 ;;
+      -c|--count) DESIRED_COUNT="$2"; shift 2 ;;
+      -p|--port)  CONTAINER_PORT="$2"; shift 2 ;;
+      -h|--help)
+        cat <<EOF
+Usage: $(basename "$0") [options]
+  -i, --image URL     ECR image (e.g., <acct>.dkr.ecr.<region>.amazonaws.com/demo-node-app:staging)
+  -c, --count N       Desired count (default: $DESIRED_COUNT)
+  -p, --port  N       Container port (default: $CONTAINER_PORT)
+EOF
+        exit 0 ;;
+      *) err "Unknown argument: $1"; exit 2 ;;
+    esac
+  done
+}
+
+discover_image_default() {
+  # Try to form an image URL using ECR outputs and default :staging tag
+  if [[ -z "$IMAGE" ]]; then
+    if terraform -chdir="$ECR_DIR" init -input=false >/dev/null 2>&1; then
+      local repo_url
+      repo_url=$(terraform -chdir="$ECR_DIR" output -raw repository_url 2>/dev/null || true)
+      if [[ -n "$repo_url" ]]; then
+        IMAGE="${repo_url}:staging"
+        info "Using default image: $IMAGE"
+      fi
+    fi
+  fi
+}
+
+ensure_prereqs() {
+  require terraform; require jq
+  [[ -n "$IMAGE" ]] || { err "--image is required (or ensure ECR outputs available to infer)"; exit 1; }
+}
+
+apply_service() {
+  info "Discovering prerequisites via Terraform outputs"
+  terraform -chdir="$VPC_DIR" init -input=false >/dev/null
+  terraform -chdir="$SG_DIR" init -input=false >/dev/null
+  terraform -chdir="$ALB_DIR" init -input=false >/dev/null || true
+  terraform -chdir="$IAM_DIR" init -input=false >/dev/null || true
+  terraform -chdir="$CLUSTER_DIR" init -input=false >/dev/null
+
+  local SUBNETS SG APP_SG TG CLUSTER_ARN EXEC_ARN TASK_ARN
+  SUBNETS=$(terraform -chdir="$VPC_DIR" output -json private_subnet_ids | jq -r '.[]' | paste -sd, -)
+  APP_SG=$(terraform -chdir="$SG_DIR" output -raw app_sg_id)
+  TG=$(terraform -chdir="$ALB_DIR" output -raw tg_arn)
+  CLUSTER_ARN=$(terraform -chdir="$CLUSTER_DIR" output -raw cluster_arn)
+  EXEC_ARN=$(terraform -chdir="$IAM_DIR" output -raw execution_role_arn 2>/dev/null || echo "")
+  TASK_ARN=$(terraform -chdir="$IAM_DIR" output -raw task_role_arn 2>/dev/null || echo "")
+
+  info "Applying ECS service in $LAB_DIR"
+  terraform -chdir="$LAB_DIR" init -input=false
+  terraform -chdir="$LAB_DIR" apply \
+    -auto-approve \
+    -var cluster_arn="$CLUSTER_ARN" \
+    -var "subnet_ids=[$SUBNETS]" \
+    -var "security_group_ids=['$APP_SG']" \
+    -var target_group_arn="$TG" \
+    ${EXEC_ARN:+-var execution_role_arn="$EXEC_ARN"} \
+    ${TASK_ARN:+-var task_role_arn="$TASK_ARN"} \
+    -var image="$IMAGE" \
+    -var container_port="$CONTAINER_PORT" \
+    -var desired_count="$DESIRED_COUNT"
+  ok "ECS service applied"
+  terraform -chdir="$LAB_DIR" output
+}
+
+main() {
+  parse_args "$@"
+  discover_image_default
+  ensure_prereqs
+  apply_service
+}
+
+main "$@"
