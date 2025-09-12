@@ -29,9 +29,9 @@ data "terraform_remote_state" "sg" {
 }
 
 locals {
-  vpc_id_effective            = length(var.vpc_id) > 0 ? var.vpc_id : data.terraform_remote_state.vpc.outputs.vpc_id
-  public_subnet_ids_effective = length(var.public_subnet_ids) > 0 ? var.public_subnet_ids : data.terraform_remote_state.vpc.outputs.public_subnet_ids
-  alb_sg_id_effective         = length(var.alb_sg_id) > 0 ? var.alb_sg_id : data.terraform_remote_state.sg.outputs.alb_sg_id
+  vpc_id_effective             = length(var.vpc_id) > 0 ? var.vpc_id : data.terraform_remote_state.vpc.outputs.vpc_id
+  public_subnet_ids_effective  = length(var.public_subnet_ids) > 0 ? var.public_subnet_ids : data.terraform_remote_state.vpc.outputs.public_subnet_ids
+  alb_sg_id_effective          = length(var.alb_sg_id) > 0 ? var.alb_sg_id : data.terraform_remote_state.sg.outputs.alb_sg_id
   certificate_domain_effective = length(var.certificate_domain_name) > 0 ? var.certificate_domain_name : var.record_name
 }
 

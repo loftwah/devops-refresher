@@ -71,7 +71,7 @@ data "terraform_remote_state" "ecr" {
 }
 
 locals {
-  container_name            = var.service_name
+  container_name             = var.service_name
   cluster_arn_effective      = length(var.cluster_arn) > 0 ? var.cluster_arn : data.terraform_remote_state.cluster.outputs.cluster_arn
   subnet_ids_effective       = length(var.subnet_ids) > 0 ? var.subnet_ids : data.terraform_remote_state.vpc.outputs.private_subnet_ids
   sg_ids_effective           = length(var.security_group_ids) > 0 ? var.security_group_ids : [data.terraform_remote_state.sg.outputs.app_sg_id]
@@ -92,9 +92,9 @@ resource "aws_ecs_task_definition" "app" {
 
   container_definitions = jsonencode([
     {
-      name      = local.container_name,
-      image     = local.image_effective,
-      essential = true,
+      name         = local.container_name,
+      image        = local.image_effective,
+      essential    = true,
       portMappings = [{ containerPort = var.container_port, hostPort = var.container_port, protocol = "tcp" }],
       logConfiguration = {
         logDriver = "awslogs",
