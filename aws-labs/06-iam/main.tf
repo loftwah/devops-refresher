@@ -118,6 +118,16 @@ resource "aws_iam_role_policy_attachment" "task_ssm" {
   policy_arn = aws_iam_policy.task_ssm[0].arn
 }
 
+resource "aws_iam_role_policy_attachment" "task_ssm_managed_core" {
+  role       = aws_iam_role.task.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_execution_ssm_managed_core" {
+  role       = aws_iam_role.ecs_execution.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
 output "execution_role_arn" { value = aws_iam_role.ecs_execution.arn }
 output "task_role_arn" { value = aws_iam_role.task.arn }
 output "task_role_name" { value = aws_iam_role.task.name }

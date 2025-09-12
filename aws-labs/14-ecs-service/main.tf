@@ -132,6 +132,16 @@ resource "aws_ecs_task_definition" "app" {
           awslogs-stream-prefix = var.service_name
         }
       },
+      healthCheck = {
+        command = [
+          "CMD-SHELL",
+          "node -e \"require('http').get('http://localhost:${var.container_port}/healthz', r => process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))\""
+        ]
+        interval    = 10
+        timeout     = 5
+        retries     = 3
+        startPeriod = 60
+      },
       secrets     = local.secrets_combined,
       environment = local.environment_combined
     }
@@ -143,13 +153,14 @@ resource "aws_ecs_task_definition" "app" {
 }
 
 resource "aws_ecs_service" "app" {
-  name                   = var.service_name
-  cluster                = local.cluster_arn_effective
-  task_definition        = aws_ecs_task_definition.app.arn
-  desired_count          = var.desired_count
-  launch_type            = "FARGATE"
-  propagate_tags         = "TASK_DEFINITION"
-  enable_execute_command = var.enable_execute_command
+  name                              = var.service_name
+  cluster                           = local.cluster_arn_effective
+  task_definition                   = aws_ecs_task_definition.app.arn
+  desired_count                     = var.desired_count
+  launch_type                       = "FARGATE"
+  propagate_tags                    = "TASK_DEFINITION"
+  enable_execute_command            = var.enable_execute_command
+  health_check_grace_period_seconds = 120
 
   network_configuration {
     subnets          = local.subnet_ids_effective

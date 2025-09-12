@@ -63,6 +63,15 @@ Common error
 
 - `CannotPullContainerError: ... demo-node-app:staging: not found` means `:staging` was not pushed to ECR. Push the tag (see above) and re-apply the service.
 
+## ECS Exec (Built-in)
+
+- This lab enables ECS Exec via `enable_execute_command = true` in `main.tf`.
+- IAM requirements are fulfilled by Lab 06 (IAM): both the task role and execution role have `AmazonSSMManagedInstanceCore` attached.
+- Network requirements are fulfilled by Lab 02 (VPC Endpoints): interface endpoints for `ssm`, `ssmmessages`, and `ec2messages` are created with Private DNS.
+- Container image must include a shell (`/bin/sh` or `/bin/bash`). Alpine has `/bin/sh` by default.
+
+See `docs/ecs-exec.md` for full details and validation steps.
+
 ## Cleanup
 
 ```bash
