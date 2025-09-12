@@ -15,6 +15,7 @@
 ## Terraform (IAM + ACM)
 
 This module creates:
+
 - IRSA roles for:
   - AWS Load Balancer Controller (trusts `system:serviceaccount:kube-system:aws-load-balancer-controller`).
   - ExternalDNS (trusts `system:serviceaccount:external-dns:external-dns`).
@@ -34,6 +35,7 @@ terraform apply \
 ```
 
 Outputs:
+
 - `certificate_arn` – Use in your Ingress annotation.
 - `lbc_role_arn` – Annotate the LBC service account.
 - `externaldns_role_arn` – Annotate the ExternalDNS service account.
@@ -58,6 +60,7 @@ helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-contro
 ```
 
 Notes:
+
 - Ensure the ECR repository account (602401143452) matches your region for the controller image.
 - If you prefer to re-use a pre-created SA, set `serviceAccount.create=false` and annotate it with the role ARN.
 
@@ -124,4 +127,3 @@ spec:
 - Delete the Ingress to remove the ALB.
 - Helm uninstall `external-dns` and `aws-load-balancer-controller`.
 - `terraform destroy` in this lab folder.
-

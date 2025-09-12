@@ -60,8 +60,8 @@ aws ecr describe-images \
 ```
 
 Common error
-- `CannotPullContainerError: ... demo-node-app:staging: not found` means `:staging` was not pushed to ECR. Push the tag (see above) and re-apply the service.
 
+- `CannotPullContainerError: ... demo-node-app:staging: not found` means `:staging` was not pushed to ECR. Push the tag (see above) and re-apply the service.
 
 ## Cleanup
 

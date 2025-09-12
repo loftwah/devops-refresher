@@ -79,6 +79,34 @@ locals {
   exec_role_arn_effective    = length(var.execution_role_arn) > 0 ? var.execution_role_arn : data.terraform_remote_state.iam.outputs.execution_role_arn
   task_role_arn_effective    = length(var.task_role_arn) > 0 ? var.task_role_arn : data.terraform_remote_state.iam.outputs.task_role_arn
   image_effective            = length(var.image) > 0 ? var.image : "${data.terraform_remote_state.ecr.outputs.repository_url}:staging"
+
+  ssm_names   = var.auto_load_env_from_ssm ? try(data.aws_ssm_parameters_by_path.app[0].names, []) : []
+  ssm_values  = var.auto_load_env_from_ssm ? try(data.aws_ssm_parameters_by_path.app[0].values, []) : []
+  ssm_env_map = zipmap(local.ssm_names, local.ssm_values)
+  ssm_env_from_path = var.auto_load_env_from_ssm ? [for full_name, val in local.ssm_env_map : {
+    name  = element(split("/", full_name), length(split("/", full_name)) - 1)
+    value = val
+  }] : []
+
+  sm_secrets_from_keys = var.auto_load_secrets_from_sm ? [for k, s in try(data.aws_secretsmanager_secret.selected, {}) : {
+    name      = k
+    valueFrom = s.arn
+  }] : []
+
+  environment_combined = concat(var.environment, local.ssm_env_from_path)
+  secrets_combined     = concat(var.secrets, local.sm_secrets_from_keys)
+}
+
+data "aws_ssm_parameters_by_path" "app" {
+  count           = var.auto_load_env_from_ssm ? 1 : 0
+  path            = var.ssm_path_prefix
+  recursive       = true
+  with_decryption = true
+}
+
+data "aws_secretsmanager_secret" "selected" {
+  for_each = var.auto_load_secrets_from_sm ? toset(var.secret_keys) : toset([])
+  name     = "${var.ssm_path_prefix}/${each.key}"
 }
 
 resource "aws_ecs_task_definition" "app" {
@@ -104,8 +132,8 @@ resource "aws_ecs_task_definition" "app" {
           awslogs-stream-prefix = var.service_name
         }
       },
-      secrets     = var.secrets,
-      environment = var.environment
+      secrets     = local.secrets_combined,
+      environment = local.environment_combined
     }
   ])
   runtime_platform {
@@ -115,12 +143,12 @@ resource "aws_ecs_task_definition" "app" {
 }
 
 resource "aws_ecs_service" "app" {
-  name            = var.service_name
-  cluster         = local.cluster_arn_effective
-  task_definition = aws_ecs_task_definition.app.arn
-  desired_count   = var.desired_count
-  launch_type     = "FARGATE"
-  propagate_tags  = "TASK_DEFINITION"
+  name                   = var.service_name
+  cluster                = local.cluster_arn_effective
+  task_definition        = aws_ecs_task_definition.app.arn
+  desired_count          = var.desired_count
+  launch_type            = "FARGATE"
+  propagate_tags         = "TASK_DEFINITION"
   enable_execute_command = var.enable_execute_command
 
   network_configuration {
@@ -134,8 +162,6 @@ resource "aws_ecs_service" "app" {
     container_name   = local.container_name
     container_port   = var.container_port
   }
-
-  lifecycle { ignore_changes = [task_definition] }
 }
 
 output "service_name" { value = aws_ecs_service.app.name }

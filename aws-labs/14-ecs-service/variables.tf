@@ -93,3 +93,27 @@ variable "enable_execute_command" {
   type        = bool
   default     = true
 }
+
+variable "ssm_path_prefix" {
+  description = "SSM/Secrets path prefix, e.g. /devops-refresher/staging/app"
+  type        = string
+  default     = "/devops-refresher/staging/app"
+}
+
+variable "auto_load_env_from_ssm" {
+  description = "If true, auto-populate container environment from SSM parameters under ssm_path_prefix"
+  type        = bool
+  default     = true
+}
+
+variable "auto_load_secrets_from_sm" {
+  description = "If true, auto-populate container secrets from Secrets Manager under ssm_path_prefix"
+  type        = bool
+  default     = true
+}
+
+variable "secret_keys" {
+  description = "Secret keys (names) to load from Secrets Manager when auto_load_secrets_from_sm is true"
+  type        = list(string)
+  default     = ["DB_PASS"]
+}
