@@ -13,6 +13,7 @@ variable "public_subnet_ids" {
 variable "alb_sg_id" {
   description = "ALB security group ID"
   type        = string
+  default     = ""
 }
 
 variable "target_port" {
@@ -31,6 +32,7 @@ variable "health_check_path" {
 variable "certificate_domain_name" {
   description = "Primary domain name for the ACM certificate (e.g., app.aws.deanlofts.xyz)"
   type        = string
+  default     = ""
 }
 
 variable "hosted_zone_name" {
@@ -42,5 +44,5 @@ variable "hosted_zone_name" {
 variable "record_name" {
   description = "DNS record name to point at the ALB (FQDN)"
   type        = string
-  default     = "app.aws.deanlofts.xyz"
+  default     = "demo-node-app-ecs.aws.deanlofts.xyz"
 }

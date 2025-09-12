@@ -15,7 +15,7 @@ Centralize non-secret configuration in SSM Parameter Store and consume from ECS 
 - SSM (non-secrets, type String):
   - `APP_ENV`, `LOG_LEVEL`, `PORT`, `S3_BUCKET`, `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_NAME`, `DB_SSL`, `REDIS_HOST`, `REDIS_PORT`, `SELF_TEST_ON_BOOT`.
 - Secrets Manager (secrets):
-  - `DB_PASS`, `REDIS_PASS`.
+  - `DB_PASS`, `REDIS_PASS`, `APP_AUTH_SECRET` (auto-created if not provided).
 
 Naming convention for both:
 
@@ -71,8 +71,13 @@ variable "secret_values" {
   default = {
     DB_PASS    = ""  # fill in CI or via console
     REDIS_PASS = ""  # fill in CI or via console
+    APP_AUTH_SECRET = "" # fill in CI or via console
   }
 }
+
+# Optional automatic generation when not provided
+variable "auto_create_app_auth_secret" { type = bool   default = true }
+variable "app_auth_secret_length"     { type = number default = 48 }
 
 resource "aws_secretsmanager_secret" "app" {
   for_each = var.secret_values
@@ -248,4 +253,5 @@ module "app_params" {
 
 - SSM parameters exist with expected values and tags.
 - Secrets exist in Secrets Manager and are scoped by env/service.
+  - Includes `APP_AUTH_SECRET` for app authentication.
 - ECS task and/or EKS pod has environment variables populated from SSM/Secrets Manager appropriately.

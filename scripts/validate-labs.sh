@@ -33,6 +33,7 @@ PREFERRED=(
   validate-iam.sh
   validate-delegation.sh
   validate-demo-app-repo.sh
+  validate-ecs-exec.sh
 )
 
 run_one() {

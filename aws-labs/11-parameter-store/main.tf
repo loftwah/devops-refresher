@@ -60,6 +60,13 @@ locals {
   }
 }
 
+# Optionally auto-generate APP_AUTH_SECRET if not provided
+resource "random_password" "app_auth_secret" {
+  count   = var.auto_create_app_auth_secret && try(var.secret_values["APP_AUTH_SECRET"], null) == null ? 1 : 0
+  length  = var.app_auth_secret_length
+  special = false
+}
+
 resource "aws_ssm_parameter" "app" {
   for_each = local.params
   name     = "/devops-refresher/${var.env}/${var.service}/${each.key}"
@@ -68,7 +75,7 @@ resource "aws_ssm_parameter" "app" {
 }
 
 resource "aws_secretsmanager_secret" "app" {
-  # Only create secrets when a non-null value is provided
+  # Create for provided values
   for_each = { for k, v in var.secret_values : k => v if v != null }
   name     = "/devops-refresher/${var.env}/${var.service}/${each.key}"
 }
@@ -77,4 +84,16 @@ resource "aws_secretsmanager_secret_version" "app" {
   for_each      = { for k, v in var.secret_values : k => v if v != null }
   secret_id     = aws_secretsmanager_secret.app[each.key].id
   secret_string = each.value
+}
+
+# Auto-created APP_AUTH_SECRET path (when not provided)
+resource "aws_secretsmanager_secret" "app_auth_secret_auto" {
+  count = var.auto_create_app_auth_secret && try(var.secret_values["APP_AUTH_SECRET"], null) == null ? 1 : 0
+  name  = "/devops-refresher/${var.env}/${var.service}/APP_AUTH_SECRET"
+}
+
+resource "aws_secretsmanager_secret_version" "app_auth_secret_auto" {
+  count         = var.auto_create_app_auth_secret && try(var.secret_values["APP_AUTH_SECRET"], null) == null ? 1 : 0
+  secret_id     = aws_secretsmanager_secret.app_auth_secret_auto[0].id
+  secret_string = random_password.app_auth_secret[0].result
 }

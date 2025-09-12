@@ -19,3 +19,5 @@ crash.*.log
 # Local env files
 .env
 .env.*
+
+repomix-output.xml

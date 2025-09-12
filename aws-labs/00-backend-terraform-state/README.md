@@ -20,12 +20,12 @@ This directory configures Terraform to use the remote S3 backend that was bootst
 Provider `default_tags` ensures everything created via Terraform gets a consistent set of tags without repeating them on every resource:
 
 - `Owner=Dean Lofts`
-- `Environment=Development` (this specific lab is for backend state infra)
+- `Environment=staging`
 - `Project=devops-refresher`
 - `App=devops-refresher`
 - `ManagedBy=Terraform`
 
-Downstream stacks can override or extend with resource-level `tags` when needed (e.g., set `Environment=staging` in the VPC lab). The provider’s defaults are merged automatically.
+Downstream stacks can override or extend with resource-level `tags` when needed. The provider’s defaults are merged automatically.
 
 ## Why Two Labs for Backend?
 

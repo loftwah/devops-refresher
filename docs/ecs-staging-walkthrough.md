@@ -61,7 +61,10 @@ Goal: Recreate a production-like staging environment for a containerized web app
 
 9. Parameters & secrets
    - SSM parameters for non-secret config; Secrets Manager for secrets.
-   - IAM: Task role must read only specific params/secrets.
+   - IAM: Execution role must be able to read Secrets Manager under `/devops-refresher/<env>/app/*` (note the `/*`), and optional SSM read if using SecureString.
+   - ECS service module will auto‑wire these into the task definition at apply time.
+   - Include app auth secret by adding `APP_AUTH_SECRET` to secret keys:
+     - `-var 'secret_keys=["DB_PASS","APP_AUTH_SECRET"]'`
    - Validate: `aws ssm get-parameter --with-decryption` (with right role).
 
 10. Task definition

@@ -28,7 +28,7 @@ data "aws_iam_policy_document" "ecs_execution_extra" {
       effect  = "Allow"
       actions = ["secretsmanager:GetSecretValue", "secretsmanager:DescribeSecret"]
       resources = [
-        "arn:aws:secretsmanager:${var.region}:${data.aws_caller_identity.current.account_id}:secret:${var.secrets_path_prefix}-*"
+        "arn:aws:secretsmanager:${var.region}:${data.aws_caller_identity.current.account_id}:secret:${var.secrets_path_prefix}/*"
       ]
     }
   }
@@ -116,6 +116,16 @@ resource "aws_iam_role_policy_attachment" "task_ssm" {
   count      = var.grant_task_role_ssm_read && length(var.ssm_path_prefix) > 0 ? 1 : 0
   role       = aws_iam_role.task.name
   policy_arn = aws_iam_policy.task_ssm[0].arn
+}
+
+resource "aws_iam_role_policy_attachment" "task_ssm_managed_core" {
+  role       = aws_iam_role.task.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_execution_ssm_managed_core" {
+  role       = aws_iam_role.ecs_execution.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
 output "execution_role_arn" { value = aws_iam_role.ecs_execution.arn }

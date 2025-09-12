@@ -29,6 +29,25 @@ This runbook helps decide when to wait, when to troubleshoot, and where to look 
 - **KMS permissions** (if encryption at rest custom key): Role has access to the CMK.
 - **Region/profile**: Double‑check Terraform provider config and your `AWS_PROFILE`/`AWS_REGION`.
 
+### Common ECS startup error: AccessDenied on Secrets Manager
+
+- Symptom:
+  - `AccessDeniedException: ... not authorized to perform secretsmanager:GetSecretValue on ... /devops-refresher/staging/app/DB_PASS-xxxxx`
+- Cause:
+  - Execution role policy used `...:secret:/devops-refresher/staging/app-*` which does not match nested names like `/devops-refresher/staging/app/DB_PASS-xxxxx`.
+- Fix:
+  - Update policy to `...:secret:/devops-refresher/staging/app/*` and apply IAM.
+  - Ensure you are operating in the correct region and profile when forcing a new deployment:
+
+```bash
+aws ecs update-service \
+  --region ap-southeast-2 \
+  --profile devops-sandbox \
+  --cluster devops-refresher-staging \
+  --service app \
+  --force-new-deployment
+```
+
 ## Live Watch With AWS CLI
 
 Use these during a long create to confirm backend status. Set your profile/region first (or export env vars):

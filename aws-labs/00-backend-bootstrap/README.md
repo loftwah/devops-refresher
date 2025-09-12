@@ -13,8 +13,8 @@ This directory bootstraps the S3 bucket that Terraform uses as a remote backend 
 ## Provider and Tags
 
 - `providers.tf` sets the AWS region/profile and applies provider `default_tags` so resources created here and downstream share a common tag baseline:
-  - `Owner=Dean Lofts`, `Environment=Development`, `Project=devops-refresher`, `App=devops-refresher`, `ManagedBy=Terraform`.
-- Other labs can override or extend tags at the resource level (e.g., VPC uses `Environment=staging`).
+  - `Owner=Dean Lofts`, `Environment=staging`, `Project=devops-refresher`, `App=devops-refresher`, `ManagedBy=Terraform`.
+- Other labs can override or extend tags at the resource level if needed.
 
 ## Why a Dedicated Bootstrap?
 
