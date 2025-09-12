@@ -77,3 +77,25 @@ See `docs/ecs-exec.md` for full details and validation steps.
 ```bash
 terraform destroy -auto-approve
 ```
+
+## Self-test endpoint
+
+- After deployment, you can run the built-in end-to-end self-test which exercises S3, Postgres, and Redis:
+
+```
+https://demo-node-app-ecs.aws.deanlofts.xyz/selftest?token=<APP_AUTH_SECRET>
+```
+
+- Expected JSON output shape when all checks pass:
+
+```json
+{
+  "s3": { "ok": true, "bucket": "<bucket>", "key": "app/selftest-<ts>.txt" },
+  "db": { "ok": true, "id": "<uuid>" },
+  "redis": { "ok": true, "key": "selftest:<uuid>" }
+}
+```
+
+- If authorization is required, use either:
+  - Query string: `?token=<APP_AUTH_SECRET>`
+  - Header: `Authorization: Bearer <APP_AUTH_SECRET>`
