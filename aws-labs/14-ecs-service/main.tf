@@ -104,7 +104,8 @@ resource "aws_ecs_task_definition" "app" {
           awslogs-stream-prefix = var.service_name
         }
       },
-      secrets = var.secrets
+      secrets     = var.secrets,
+      environment = var.environment
     }
   ])
   runtime_platform {
@@ -120,6 +121,7 @@ resource "aws_ecs_service" "app" {
   desired_count   = var.desired_count
   launch_type     = "FARGATE"
   propagate_tags  = "TASK_DEFINITION"
+  enable_execute_command = var.enable_execute_command
 
   network_configuration {
     subnets          = local.subnet_ids_effective

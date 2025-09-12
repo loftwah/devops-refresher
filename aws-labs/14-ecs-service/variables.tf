@@ -81,3 +81,15 @@ variable "secrets" {
   type        = list(object({ name = string, valueFrom = string }))
   default     = []
 }
+
+variable "environment" {
+  description = "Container environment variables (non-sensitive)"
+  type        = list(object({ name = string, value = string }))
+  default     = []
+}
+
+variable "enable_execute_command" {
+  description = "Enable ECS Exec for the service"
+  type        = bool
+  default     = true
+}

@@ -40,6 +40,29 @@ To map secrets (DB_PASS, REDIS_PASS):
 
 - `service_name`, `task_definition_arn`.
 
+## Image tag requirements and troubleshooting
+
+- The service defaults to using the ECR repository URL from Lab 03 with the `:staging` tag when `-var image` is not provided.
+- Ensure your build process pushes at least two tags for the app image:
+  - An immutable tag, e.g., the short git SHA.
+  - An environment tag used by ECS, e.g., `staging`.
+- Example build/push flow:
+
+```bash
+AWS_PROFILE=devops-sandbox AWS_REGION=ap-southeast-2 \
+  ./build-and-push.sh   # tags and pushes :<sha> and :staging
+
+# Verify the tag exists
+aws ecr describe-images \
+  --repository-name demo-node-app \
+  --query 'imageDetails[].imageTags' \
+  --region ap-southeast-2 --profile devops-sandbox
+```
+
+Common error
+- `CannotPullContainerError: ... demo-node-app:staging: not found` means `:staging` was not pushed to ECR. Push the tag (see above) and re-apply the service.
+
+
 ## Cleanup
 
 ```bash

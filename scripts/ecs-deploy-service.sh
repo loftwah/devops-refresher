@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# Deploys Lab 14 (ECS Service)
-# - Discovers cluster, subnets, SGs, target group, IAM roles from prior labs via tf outputs
+# Deploy ECS Service (Primary entrypoint)
+# - Discovers cluster, subnets, SGs, target group, IAM roles via tf outputs
 # - Requires container image (ECR URL with tag), defaults to :staging for demo-node-app if discoverable
 
 ROOT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")"/.. && pwd)
@@ -28,6 +28,8 @@ require() { command -v "$1" >/dev/null 2>&1 || { err "Required command '$1' not 
 IMAGE=""
 DESIRED_COUNT=1
 CONTAINER_PORT=3000
+SSM_PATH=""
+INCLUDE_SSM=true
 
 parse_args() {
   while [[ $# -gt 0 ]]; do
@@ -35,12 +37,16 @@ parse_args() {
       -i|--image) IMAGE="$2"; shift 2 ;;
       -c|--count) DESIRED_COUNT="$2"; shift 2 ;;
       -p|--port)  CONTAINER_PORT="$2"; shift 2 ;;
+      --ssm-path) SSM_PATH="$2"; shift 2 ;;
+      --no-ssm)   INCLUDE_SSM=false; shift 1 ;;
       -h|--help)
         cat <<EOF
 Usage: $(basename "$0") [options]
   -i, --image URL     ECR image (e.g., <acct>.dkr.ecr.<region>.amazonaws.com/demo-node-app:staging)
   -c, --count N       Desired count (default: $DESIRED_COUNT)
   -p, --port  N       Container port (default: $CONTAINER_PORT)
+      --ssm-path PATH  SSM/Secrets prefix (default: /devops-refresher/staging/app)
+      --no-ssm         Do not read SSM/Secrets for env/secrets
 EOF
         exit 0 ;;
       *) err "Unknown argument: $1"; exit 2 ;;
@@ -67,6 +73,42 @@ ensure_prereqs() {
   [[ -n "$IMAGE" ]] || { err "--image is required (or ensure ECR outputs available to infer)"; exit 1; }
 }
 
+resolve_ssm_path() {
+  if [[ "$INCLUDE_SSM" != true ]]; then return 0; fi
+  if [[ -n "$SSM_PATH" ]]; then return 0; fi
+  # Try to read a default from Parameter Store lab output; fallback to standard path
+  SSM_PATH="/devops-refresher/staging/app"
+}
+
+build_env_secrets_vars() {
+  if [[ "$INCLUDE_SSM" != true ]]; then
+    ENV_VARS_FILE=""
+    return 0
+  fi
+
+  info "Collecting env from SSM and secrets from Secrets Manager under $SSM_PATH"
+  # SSM parameters (non-sensitive)
+  local env_json
+  env_json=$(aws ssm get-parameters-by-path \
+    --path "$SSM_PATH" \
+    --with-decryption \
+    --recursive \
+    --query 'Parameters[].{Name:Name,Value:Value}' \
+    --output json 2>/dev/null | jq -c '[.[] | {name: (.Name|split("/")|last), value: .Value}]' || echo '[]')
+
+  # Secrets Manager (sensitive), match names with prefix
+  local sec_json
+  sec_json=$(aws secretsmanager list-secrets \
+    --filters Key=name,Values="$SSM_PATH/" \
+    --query 'SecretList[].{Name:Name,ARN:ARN}' \
+    --output json 2>/dev/null | jq -c '[.[] | {name: (.Name|split("/")|last), valueFrom: .ARN}]' || echo '[]')
+
+  # Write a temp tfvars.json that Terraform can consume directly
+  ENV_VARS_FILE=$(mktemp "${TMPDIR:-/tmp}/ecs-env.XXXXXX.tfvars.json")
+  jq -n --argjson env "$env_json" --argjson sec "$sec_json" '{environment: $env, secrets: $sec}' > "$ENV_VARS_FILE"
+  info "Wrote env/secrets var file: $ENV_VARS_FILE"
+}
+
 apply_service() {
   info "Discovering prerequisites via Terraform outputs"
   terraform -chdir="$VPC_DIR" init -input=false >/dev/null
@@ -85,6 +127,11 @@ apply_service() {
 
   info "Applying ECS service in $LAB_DIR"
   terraform -chdir="$LAB_DIR" init -input=false
+  if [[ -n "${ENV_VARS_FILE:-}" ]]; then
+    VAR_FILE_ARG=( -var-file "$ENV_VARS_FILE" )
+  else
+    VAR_FILE_ARG=()
+  fi
   terraform -chdir="$LAB_DIR" apply \
     -auto-approve \
     -var cluster_arn="$CLUSTER_ARN" \
@@ -95,7 +142,8 @@ apply_service() {
     ${TASK_ARN:+-var task_role_arn="$TASK_ARN"} \
     -var image="$IMAGE" \
     -var container_port="$CONTAINER_PORT" \
-    -var desired_count="$DESIRED_COUNT"
+    -var desired_count="$DESIRED_COUNT" \
+    "${VAR_FILE_ARG[@]}"
   ok "ECS service applied"
   terraform -chdir="$LAB_DIR" output
 }
@@ -104,7 +152,10 @@ main() {
   parse_args "$@"
   discover_image_default
   ensure_prereqs
+  resolve_ssm_path
+  build_env_secrets_vars
   apply_service
 }
 
 main "$@"
+

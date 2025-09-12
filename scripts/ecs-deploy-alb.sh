@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# Deploys Lab 12 (ALB) with DNS + ACM
-# - Discovers ALB SG from Lab 07 outputs
+# Deploys ALB with DNS + ACM (Primary entrypoint)
+# - Discovers ALB SG from Security Groups outputs
 # - Creates/validates ACM cert via Route53
 # - Creates A record to ALB
 #

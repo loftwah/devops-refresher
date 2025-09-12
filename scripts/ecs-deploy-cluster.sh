@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# Deploys Lab 13 (ECS Cluster)
+# Deploy ECS Cluster (Primary entrypoint)
 
 ROOT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")"/.. && pwd)
 LAB_DIR="$ROOT_DIR/aws-labs/13-ecs-cluster"
