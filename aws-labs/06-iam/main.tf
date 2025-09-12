@@ -1,5 +1,23 @@
 data "aws_caller_identity" "current" {}
 
+# Read S3 lab remote state so we can automatically grant task role access
+# to the app bucket without having to pass -var s3_bucket_name=...
+data "terraform_remote_state" "s3" {
+  backend = "s3"
+  config = {
+    bucket       = "tf-state-139294524816-us-east-1"
+    key          = "staging/s3/terraform.tfstate"
+    region       = "us-east-1"
+    profile      = "devops-sandbox"
+    use_lockfile = true
+    encrypt      = true
+  }
+}
+
+locals {
+  s3_bucket_name_effective = length(var.s3_bucket_name) > 0 ? var.s3_bucket_name : try(data.terraform_remote_state.s3.outputs.bucket_name, "")
+}
+
 data "aws_iam_policy_document" "ecs_assume" {
   statement {
     effect  = "Allow"
@@ -70,29 +88,29 @@ resource "aws_iam_role" "task" {
 }
 
 data "aws_iam_policy_document" "task_s3" {
-  count = length(var.s3_bucket_name) > 0 ? 1 : 0
+  count = length(local.s3_bucket_name_effective) > 0 ? 1 : 0
 
   statement {
     effect    = "Allow"
     actions   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
-    resources = ["arn:aws:s3:::${var.s3_bucket_name}/app/*"]
+    resources = ["arn:aws:s3:::${local.s3_bucket_name_effective}/app/*"]
   }
 
   statement {
     effect    = "Allow"
     actions   = ["s3:ListBucket"]
-    resources = ["arn:aws:s3:::${var.s3_bucket_name}"]
+    resources = ["arn:aws:s3:::${local.s3_bucket_name_effective}"]
   }
 }
 
 resource "aws_iam_policy" "task_s3" {
-  count  = length(var.s3_bucket_name) > 0 ? 1 : 0
+  count  = length(local.s3_bucket_name_effective) > 0 ? 1 : 0
   name   = "devops-refresher-staging-task-s3"
   policy = data.aws_iam_policy_document.task_s3[0].json
 }
 
 resource "aws_iam_role_policy_attachment" "task_s3" {
-  count      = length(var.s3_bucket_name) > 0 ? 1 : 0
+  count      = length(local.s3_bucket_name_effective) > 0 ? 1 : 0
   role       = aws_iam_role.task.name
   policy_arn = aws_iam_policy.task_s3[0].arn
 }

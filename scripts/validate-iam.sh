@@ -106,6 +106,17 @@ check_execution_role_policies() {
     err "Missing AmazonECSTaskExecutionRolePolicy on $role_name"; exit 1
   fi
   info "Attached policies: $(tr '\n' ',' <<<"$attached" | sed 's/,$//')"
+
+  # Ensure extra policy for Secrets/SSM is attached (from Lab 06)
+  local extra_name="devops-refresher-staging-ecs-execution-extra"
+  local extra_attached
+  extra_attached=$(aws_cli iam list-attached-role-policies --role-name "$role_name" \
+    --query 'AttachedPolicies[?PolicyName==`'"$extra_name"'`].PolicyArn' --output text || true)
+  if [[ -z "$extra_attached" ]]; then
+    err "Missing extra execution policy ($extra_name) for Secrets/SSM read on $role_name"; exit 1
+  else
+    ok "Extra execution policy attached: $extra_name"
+  fi
 }
 
 main() {

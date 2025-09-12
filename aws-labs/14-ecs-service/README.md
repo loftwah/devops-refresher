@@ -11,24 +11,28 @@
 - Lab 07 Security Groups: `app_sg_id`.
 - Lab 12 ALB: `tg_arn`.
 - Lab 06 IAM: `execution_role_arn`, `task_role_arn`.
+  - Ensure these include `AmazonSSMManagedInstanceCore` for ECS Exec.
 
 ## Apply
 
 ```bash
 cd aws-labs/14-ecs-service
 terraform init
-terraform apply \
-  -var cluster_arn=$(cd ../13-ecs-cluster && terraform output -raw cluster_arn) \
-  -var 'subnet_ids=["subnet-aaaa","subnet-bbbb"]' \
-  -var 'security_group_ids=['"$(cd ../07-security-groups && terraform output -raw app_sg_id)"']' \
-  -var target_group_arn=$(cd ../12-alb && terraform output -raw tg_arn) \
-  -var execution_role_arn=$(cd ../06-iam && terraform output -raw execution_role_arn) \
-  -var task_role_arn=$(cd ../06-iam && terraform output -raw task_role_arn) \
-  -var image=<account>.dkr.ecr.<region>.amazonaws.com/devops-refresher:staging \
-  -var container_port=3000 \
-  -var desired_count=1 \
-  -var 'secret_keys=["DB_PASS","APP_AUTH_SECRET"]' \
-  -auto-approve
+terraform apply -auto-approve
+
+# Optional overrides (if running in isolation or customizing wiring)
+# -var cluster_arn=...
+# -var 'subnet_ids=["subnet-...","subnet-..."]'
+# -var 'security_group_ids=["sg-..."]'
+# -var target_group_arn=...
+# -var execution_role_arn=... -var task_role_arn=...
+# -var image=<account>.dkr.ecr.<region>.amazonaws.com/devops-refresher:staging
+# -var container_port=3000 -var desired_count=1
+# -var 'secret_keys=["DB_PASS","APP_AUTH_SECRET"]'
+# # Optional: disable auto-loading from SSM/Secrets and set explicit env/secrets
+# -var auto_load_env_from_ssm=false -var auto_load_secrets_from_sm=false \
+# -var 'environment=[{name="APP_ENV",value="staging"}]' \
+# -var 'secrets=[{name="DB_PASS",valueFrom="arn:aws:secretsmanager:...:secret:/devops-refresher/staging/app/DB_PASS-xxxx"}]'
 ```
 
 To map secrets (DB_PASS, REDIS_PASS, APP_AUTH_SECRET):
@@ -73,8 +77,55 @@ Common error
 
 See `docs/ecs-exec.md` for full details and validation steps.
 
+## What Terraform Actually Creates (main.tf)
+
+- Auto-discovers cluster, subnets, SGs, ALB target group, IAM roles, and ECR repository URL via remote state when you don’t pass variables.
+- `aws_ecs_task_definition.app`:
+  - Fargate task with CPU/memory from variables, runtime platform set to `LINUX/X86_64`.
+  - One container named after `var.service_name` with:
+    - Image: defaults to `<repo>:staging` from ECR lab.
+    - Logs to CloudWatch using `awslogs` with `var.log_group_name` and `var.region`.
+    - Health check that hits `http://localhost:${var.container_port}/healthz`.
+    - Environment and secrets composed from explicit vars plus optional auto-load from SSM and Secrets Manager under `var.ssm_path_prefix`.
+- `aws_ecs_service.app`:
+  - Fargate launch type, desired count, ECS Exec enabled, grace period set.
+  - Awsvpc networking in private subnets with `assign_public_ip=false` and app SG.
+  - Load balancer attachment to the ALB target group.
+
+## Variables (variables.tf)
+
+- Wiring (all optional due to remote state): `cluster_arn`, `subnet_ids`, `security_group_ids`, `target_group_arn`, `execution_role_arn`, `task_role_arn`.
+- Container: `image`, `container_port`, `cpu`, `memory`, `service_name`, `desired_count`.
+- Logs: `log_group_name` (defaults to `/aws/ecs/devops-refresher-staging`), `region` (required for awslogs; see note below).
+- Config sourcing: `ssm_path_prefix` (default `/devops-refresher/staging/app`), `auto_load_env_from_ssm` (default true), `auto_load_secrets_from_sm` (default true), `secret_keys` (default `["DB_PASS","APP_AUTH_SECRET"]`).
+- Manual overrides: `environment` (list of name/value), `secrets` (list of name/valueFrom).
+
+Note: If `var.region` is not defined in your variables file, set it explicitly or ensure a default exists; the awslogs driver requires the region.
+
 ## Cleanup
 
 ```bash
 terraform destroy -auto-approve
 ```
+
+## Self-test endpoint
+
+- After deployment, you can run the built-in end-to-end self-test which exercises S3, Postgres, and Redis:
+
+```
+https://demo-node-app-ecs.aws.deanlofts.xyz/selftest?token=<APP_AUTH_SECRET>
+```
+
+- Expected JSON output shape when all checks pass:
+
+```json
+{
+  "s3": { "ok": true, "bucket": "<bucket>", "key": "app/selftest-<ts>.txt" },
+  "db": { "ok": true, "id": "<uuid>" },
+  "redis": { "ok": true, "key": "selftest:<uuid>" }
+}
+```
+
+- If authorization is required, use either:
+  - Query string: `?token=<APP_AUTH_SECRET>`
+  - Header: `Authorization: Bearer <APP_AUTH_SECRET>`

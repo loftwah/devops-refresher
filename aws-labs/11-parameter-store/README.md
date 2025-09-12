@@ -1,9 +1,18 @@
 # Lab 11 – Parameter Store (SSM) + Secrets
 
-## Objectives
+## Objectives & What Terraform Creates
 
-- Store non-secrets as SSM parameters; keep secrets in Secrets Manager.
-- Populate from outputs of the S3 (app bucket), RDS (PostgreSQL), and Redis (ElastiCache) stacks via remote state.
+- Store non‑secrets as SSM parameters under `/devops-refresher/{env}/{service}/...`.
+- Manage secrets in Secrets Manager. Auto‑create `APP_AUTH_SECRET` if not provided.
+- Auto‑populate values from S3, RDS, and Redis labs via remote state when variables are unset.
+
+Terraform resources in `main.tf`:
+
+- Remote state readers for S3, RDS, Redis. Locals compute effective values via precedence: explicit var > remote state output.
+- `aws_ssm_parameter.app` (for each key in a local map): String params like `APP_ENV`, `S3_BUCKET`, `DB_HOST`, `REDIS_URL`, etc.
+- `aws_secretsmanager_secret.app` and versions created only for provided non‑null keys in `var.secret_values`.
+- Auto‑created `APP_AUTH_SECRET` when `var.auto_create_app_auth_secret = true` and not provided.
+- Output: `ssm_path_prefix`.
 
 ## Prerequisites
 
@@ -24,16 +33,13 @@
 ```bash
 cd aws-labs/11-parameter-store
 terraform init
-terraform apply \
-  -var env=staging -var service=app \
-  -var s3_bucket=$(cd ../08-s3 && terraform output -raw bucket_name) \
-  -var db_host=$(cd ../09-rds && terraform output -raw db_host) \
-  -var db_port=$(cd ../09-rds && terraform output -raw db_port) \
-  -var db_user=$(cd ../09-rds && terraform output -raw db_user) \
-  -var db_name=$(cd ../09-rds && terraform output -raw db_name) \
-  -var redis_host=$(cd ../10-elasticache-redis && terraform output -raw redis_host) \
-  -var redis_port=$(cd ../10-elasticache-redis && terraform output -raw redis_port) \
-  -auto-approve
+terraform apply -auto-approve
+
+# Optional overrides (when running in isolation or for custom values)
+# -var env=staging -var service=app
+# -var s3_bucket=... -var db_host=... -var db_port=... -var db_user=... -var db_name=...
+# -var redis_host=... -var redis_port=...
+# -var 'secret_values={APP_AUTH_SECRET="..."}'
 ```
 
 Notes:
@@ -42,16 +48,26 @@ Notes:
 - In most cases you can simply run: `terraform apply -auto-approve`.
 - Override any value by passing `-var` or by providing `*.auto.tfvars` files.
 
+Redis TLS:
+
+- ElastiCache Redis enables TLS (`transit_encryption_enabled = true`).
+- This lab publishes `REDIS_URL=rediss://<host>:<port>` alongside `REDIS_HOST` and `REDIS_PORT` to simplify client configuration.
+
 To create additional secret versions, pass `-var secret_values` with non-null values (e.g., `REDIS_PASS`). `DB_PASS` is created in Lab 09 and should typically be omitted here.
 
 ## Outputs
 
 - `ssm_path_prefix` → `/devops-refresher/{env}/{service}`.
 
-## Secrets Manager (Database Password)
+## Secrets Manager (DB password and app auth secret)
 
 - The database password is not stored in SSM. It is created by the RDS stack in Secrets Manager at `/devops-refresher/{env}/{service}/DB_PASS`.
-- This stack does not overwrite that secret by default. To create or update secrets here, set non-null values in `var.secret_values`.
+- The application auth secret (`APP_AUTH_SECRET`) is automatically created by this stack if not provided via `secret_values` (length configurable via `app_auth_secret_length`).
+- This stack does not overwrite existing secrets unless you provide non-null values in `var.secret_values`.
+
+IAM consumption reminder:
+
+- ECS and EKS roles must have read permissions to SSM path and Secrets ARNs. See IAM lab (06) for policy documents that scope to `/devops-refresher/{env}/{service}/*`.
 
 ### Consuming in Workloads
 
