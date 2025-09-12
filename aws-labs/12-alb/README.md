@@ -16,16 +16,17 @@
 ```bash
 cd aws-labs/12-alb
 terraform init
-terraform apply \
-  -var vpc_id=$(cd ../01-vpc && terraform output -raw vpc_id) \
-  -var 'public_subnet_ids=["subnet-aaaa","subnet-bbbb"]' \
-  -var alb_sg_id=$(cd ../07-security-groups && terraform output -raw alb_sg_id) \
-  -var certificate_domain_name=demo-node-app-ecs.aws.deanlofts.xyz \
-  -var hosted_zone_name=aws.deanlofts.xyz \
-  -var record_name=demo-node-app-ecs.aws.deanlofts.xyz \
-  -var target_port=3000 \
-  -var health_check_path=/healthz \
-  -auto-approve
+terraform apply -auto-approve
+
+# Optional overrides (if running in isolation or customizing)
+# -var vpc_id=... \
+# -var 'public_subnet_ids=["subnet-...","subnet-..."]' \
+# -var alb_sg_id=... \
+# -var hosted_zone_name=aws.deanlofts.xyz \
+# -var record_name=demo-node-app-ecs.aws.deanlofts.xyz \
+# -var certificate_domain_name=demo-node-app-ecs.aws.deanlofts.xyz \
+# -var target_port=3000 \
+# -var health_check_path=/healthz
 ```
 
 ## Outputs

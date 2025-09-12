@@ -15,11 +15,12 @@
 ```bash
 cd aws-labs/10-elasticache-redis
 terraform init
-terraform apply \
-  -var vpc_id=$(cd ../01-vpc && terraform output -raw vpc_id) \
-  -var 'private_subnet_ids=["subnet-aaaa","subnet-bbbb"]' \
-  -var app_sg_id=$(cd ../07-security-groups && terraform output -raw app_sg_id) \
-  -auto-approve
+terraform apply -auto-approve
+
+# Optional overrides (when running in isolation)
+# -var vpc_id=... \
+# -var 'private_subnet_ids=["subnet-...","subnet-..."]' \
+# -var app_sg_id=...
 ```
 
 ## Outputs

@@ -11,11 +11,12 @@
 ```bash
 cd aws-labs/06-iam
 terraform init
-terraform apply \
-  -var s3_bucket_name=$(cd ../08-s3 && terraform output -raw bucket_name 2>/dev/null || echo "") \
-  -var grant_task_role_ssm_read=false \
-  -var ssm_path_prefix=/devops-refresher/staging/app \
-  -auto-approve
+terraform apply -auto-approve
+
+# Optional overrides
+# -var s3_bucket_name=...                # override auto-detected bucket from Lab 08
+# -var grant_task_role_ssm_read=true \\   # grant task SSM read if the app pulls SSM at runtime
+#    -var ssm_path_prefix=/devops-refresher/staging/app
 ```
 
 ## Outputs

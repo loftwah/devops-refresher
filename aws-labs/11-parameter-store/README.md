@@ -24,16 +24,12 @@
 ```bash
 cd aws-labs/11-parameter-store
 terraform init
-terraform apply \
-  -var env=staging -var service=app \
-  -var s3_bucket=$(cd ../08-s3 && terraform output -raw bucket_name) \
-  -var db_host=$(cd ../09-rds && terraform output -raw db_host) \
-  -var db_port=$(cd ../09-rds && terraform output -raw db_port) \
-  -var db_user=$(cd ../09-rds && terraform output -raw db_user) \
-  -var db_name=$(cd ../09-rds && terraform output -raw db_name) \
-  -var redis_host=$(cd ../10-elasticache-redis && terraform output -raw redis_host) \
-  -var redis_port=$(cd ../10-elasticache-redis && terraform output -raw redis_port) \
-  -auto-approve
+terraform apply -auto-approve
+
+# Optional overrides (when running in isolation or for custom values)
+# -var env=staging -var service=app
+# -var s3_bucket=... -var db_host=... -var db_port=... -var db_user=... -var db_name=...
+# -var redis_host=... -var redis_port=...
 ```
 
 Notes:
@@ -42,16 +38,22 @@ Notes:
 - In most cases you can simply run: `terraform apply -auto-approve`.
 - Override any value by passing `-var` or by providing `*.auto.tfvars` files.
 
+Redis TLS:
+
+- ElastiCache Redis enables TLS (`transit_encryption_enabled = true`).
+- This lab now publishes `REDIS_URL=rediss://<host>:<port>` alongside `REDIS_HOST` and `REDIS_PORT` to simplify client configuration.
+
 To create additional secret versions, pass `-var secret_values` with non-null values (e.g., `REDIS_PASS`). `DB_PASS` is created in Lab 09 and should typically be omitted here.
 
 ## Outputs
 
 - `ssm_path_prefix` → `/devops-refresher/{env}/{service}`.
 
-## Secrets Manager (Database Password)
+## Secrets Manager (DB password and app auth secret)
 
 - The database password is not stored in SSM. It is created by the RDS stack in Secrets Manager at `/devops-refresher/{env}/{service}/DB_PASS`.
-- This stack does not overwrite that secret by default. To create or update secrets here, set non-null values in `var.secret_values`.
+- The application auth secret (`APP_AUTH_SECRET`) is automatically created by this stack if not provided via `secret_values` (length configurable via `app_auth_secret_length`).
+- This stack does not overwrite existing secrets unless you provide non-null values in `var.secret_values`.
 
 ### Consuming in Workloads
 

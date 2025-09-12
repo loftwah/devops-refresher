@@ -57,6 +57,7 @@ locals {
     DB_NAME           = local.db_name_effective
     REDIS_HOST        = local.redis_host_effective
     REDIS_PORT        = tostring(local.redis_port_effective)
+    REDIS_URL         = "rediss://${local.redis_host_effective}:${tostring(local.redis_port_effective)}"
   }
 }
 
