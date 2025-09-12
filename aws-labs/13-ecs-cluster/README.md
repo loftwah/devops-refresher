@@ -18,6 +18,11 @@ terraform apply -auto-approve
 
 ## Notes
 
+- What Terraform Actually Creates (main.tf):
+  - `aws_cloudwatch_log_group.ecs` named `/aws/ecs/devops-refresher-staging` with 30‑day retention.
+  - `aws_ecs_cluster.this` named `devops-refresher-staging` with Container Insights enabled.
+  - Outputs: `cluster_name`, `cluster_arn`, `log_group_name`.
+
 - Keep this cluster reusable for multiple services in the same environment.
 
 ## Cleanup

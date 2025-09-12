@@ -38,6 +38,27 @@ terraform apply -auto-approve
 - Target type `ip` for Fargate. Health checks use `/healthz`.
 - ACM uses DNS validation in Route 53. Ensure the hosted zone exists for `aws.deanlofts.xyz`.
 
+### What Terraform Actually Creates (main.tf)
+
+- Auto‑discovers VPC/public subnets and ALB SG from Labs 01 and 07 when variables are empty.
+- `aws_lb.app` in public subnets with the provided ALB SG.
+- `aws_lb_target_group.app` (HTTP, port `var.target_port`, target_type `ip`) with a `/healthz` health check by default.
+- `aws_acm_certificate.this` for `var.certificate_domain_name` (defaults to `var.record_name`) with DNS validation records in Route 53.
+- `aws_lb_listener.https` on 443 using the validated certificate and forwarding to the TG.
+- `aws_lb_listener.http` on 80 redirecting to 443.
+- `aws_route53_record.app_alias` A‑alias pointing the FQDN to the ALB.
+
+### Variables (variables.tf)
+
+- `vpc_id`, `public_subnet_ids`, `alb_sg_id` (optional; auto‑discovered if empty).
+- `target_port` (default 3000), `health_check_path` (default `/healthz`).
+- `certificate_domain_name` (defaults to `record_name` if empty).
+- `hosted_zone_name` (default `aws.deanlofts.xyz`), `record_name` (default `demo-node-app-ecs.aws.deanlofts.xyz`).
+
+### Outputs (outputs.tf)
+
+- `alb_arn`, `alb_dns_name`, `tg_arn`, `listener_http_arn`, `listener_https_arn`, `certificate_arn`, `record_fqdn`.
+
 ### Inputs and Auto‑discovery
 
 - Precedence for inputs: explicit variable values override auto‑discovered values.

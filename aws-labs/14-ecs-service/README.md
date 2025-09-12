@@ -11,6 +11,7 @@
 - Lab 07 Security Groups: `app_sg_id`.
 - Lab 12 ALB: `tg_arn`.
 - Lab 06 IAM: `execution_role_arn`, `task_role_arn`.
+  - Ensure these include `AmazonSSMManagedInstanceCore` for ECS Exec.
 
 ## Apply
 
@@ -28,6 +29,10 @@ terraform apply -auto-approve
 # -var image=<account>.dkr.ecr.<region>.amazonaws.com/devops-refresher:staging
 # -var container_port=3000 -var desired_count=1
 # -var 'secret_keys=["DB_PASS","APP_AUTH_SECRET"]'
+# # Optional: disable auto-loading from SSM/Secrets and set explicit env/secrets
+# -var auto_load_env_from_ssm=false -var auto_load_secrets_from_sm=false \
+# -var 'environment=[{name="APP_ENV",value="staging"}]' \
+# -var 'secrets=[{name="DB_PASS",valueFrom="arn:aws:secretsmanager:...:secret:/devops-refresher/staging/app/DB_PASS-xxxx"}]'
 ```
 
 To map secrets (DB_PASS, REDIS_PASS, APP_AUTH_SECRET):
@@ -71,6 +76,31 @@ Common error
 - Container image must include a shell (`/bin/sh` or `/bin/bash`). Alpine has `/bin/sh` by default.
 
 See `docs/ecs-exec.md` for full details and validation steps.
+
+## What Terraform Actually Creates (main.tf)
+
+- Auto-discovers cluster, subnets, SGs, ALB target group, IAM roles, and ECR repository URL via remote state when you don’t pass variables.
+- `aws_ecs_task_definition.app`:
+  - Fargate task with CPU/memory from variables, runtime platform set to `LINUX/X86_64`.
+  - One container named after `var.service_name` with:
+    - Image: defaults to `<repo>:staging` from ECR lab.
+    - Logs to CloudWatch using `awslogs` with `var.log_group_name` and `var.region`.
+    - Health check that hits `http://localhost:${var.container_port}/healthz`.
+    - Environment and secrets composed from explicit vars plus optional auto-load from SSM and Secrets Manager under `var.ssm_path_prefix`.
+- `aws_ecs_service.app`:
+  - Fargate launch type, desired count, ECS Exec enabled, grace period set.
+  - Awsvpc networking in private subnets with `assign_public_ip=false` and app SG.
+  - Load balancer attachment to the ALB target group.
+
+## Variables (variables.tf)
+
+- Wiring (all optional due to remote state): `cluster_arn`, `subnet_ids`, `security_group_ids`, `target_group_arn`, `execution_role_arn`, `task_role_arn`.
+- Container: `image`, `container_port`, `cpu`, `memory`, `service_name`, `desired_count`.
+- Logs: `log_group_name` (defaults to `/aws/ecs/devops-refresher-staging`), `region` (required for awslogs; see note below).
+- Config sourcing: `ssm_path_prefix` (default `/devops-refresher/staging/app`), `auto_load_env_from_ssm` (default true), `auto_load_secrets_from_sm` (default true), `secret_keys` (default `["DB_PASS","APP_AUTH_SECRET"]`).
+- Manual overrides: `environment` (list of name/value), `secrets` (list of name/valueFrom).
+
+Note: If `var.region` is not defined in your variables file, set it explicitly or ensure a default exists; the awslogs driver requires the region.
 
 ## Cleanup
 
