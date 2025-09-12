@@ -58,6 +58,7 @@ scripts/ecs-exec.sh aa0c7c8f33e94cd4853ee4233a3bc551
 ```
 
 The validator confirms:
+
 - Exec flag on service is ON
 - Task and execution roles have `AmazonSSMManagedInstanceCore`
 - SSM interface endpoints exist and have Private DNS enabled
@@ -67,5 +68,3 @@ The validator confirms:
 
 - Re-apply Lab 02, 06, and 14. No manual IAM or endpoint edits should be necessary.
 - Ensure the container has `/bin/sh` or `/bin/bash` and the service redeployed after IAM changes.
-
-

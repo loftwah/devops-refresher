@@ -115,5 +115,5 @@ variable "auto_load_secrets_from_sm" {
 variable "secret_keys" {
   description = "Secret keys (names) to load from Secrets Manager when auto_load_secrets_from_sm is true"
   type        = list(string)
-  default     = ["DB_PASS"]
+  default     = ["DB_PASS", "APP_AUTH_SECRET"]
 }

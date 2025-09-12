@@ -109,12 +109,25 @@ check_db_secret() {
   fi
 }
 
+check_app_auth_secret() {
+  local secret_name="/devops-refresher/${ENV_NAME}/${SERVICE_NAME}/APP_AUTH_SECRET"
+  local arn
+  arn=$(aws_cli secretsmanager list-secrets --query 'SecretList[].Name' --output text | tr '\t' '\n' | grep -x "$secret_name" || true)
+  if [[ -n "$arn" ]]; then
+    ok "APP_AUTH_SECRET exists: $secret_name"
+  else
+    err "APP_AUTH_SECRET not found in Secrets Manager. It should be auto-created by the Parameter Store lab when applied."
+    exit 1
+  fi
+}
+
 main() {
   require aws; require jq
   parse_args "$@"
   discover_defaults
   check_params
   check_db_secret
+  check_app_auth_secret
   ok "Parameter Store validation passed"
 }
 

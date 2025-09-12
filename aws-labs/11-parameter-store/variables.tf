@@ -58,7 +58,20 @@ variable "secret_values" {
   description = "Secret key/values for Secrets Manager"
   type        = map(string)
   default = {
-    DB_PASS    = null
-    REDIS_PASS = null
+    DB_PASS         = null
+    REDIS_PASS      = null
+    APP_AUTH_SECRET = null
   }
+}
+
+variable "auto_create_app_auth_secret" {
+  description = "Automatically create APP_AUTH_SECRET if not provided"
+  type        = bool
+  default     = true
+}
+
+variable "app_auth_secret_length" {
+  description = "Length of generated APP_AUTH_SECRET when auto-created"
+  type        = number
+  default     = 48
 }

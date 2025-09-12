@@ -27,13 +27,14 @@ terraform apply \
   -var image=<account>.dkr.ecr.<region>.amazonaws.com/devops-refresher:staging \
   -var container_port=3000 \
   -var desired_count=1 \
+  -var 'secret_keys=["DB_PASS","APP_AUTH_SECRET"]' \
   -auto-approve
 ```
 
-To map secrets (DB_PASS, REDIS_PASS):
+To map secrets (DB_PASS, REDIS_PASS, APP_AUTH_SECRET):
 
 ```bash
--var 'secrets=[{name="DB_PASS",valueFrom="arn:aws:secretsmanager:...:secret:/devops-refresher/staging/app/DB_PASS-xxxx"},{name="REDIS_PASS",valueFrom="arn:aws:secretsmanager:...:secret:/devops-refresher/staging/app/REDIS_PASS-xxxx"}]'
+-var 'secrets=[{name="DB_PASS",valueFrom="arn:aws:secretsmanager:...:secret:/devops-refresher/staging/app/DB_PASS-xxxx"},{name="REDIS_PASS",valueFrom="arn:aws:secretsmanager:...:secret:/devops-refresher/staging/app/REDIS_PASS-xxxx"},{name="APP_AUTH_SECRET",valueFrom="arn:aws:secretsmanager:...:secret:/devops-refresher/staging/app/APP_AUTH_SECRET-xxxx"}]'
 ```
 
 ## Outputs
