@@ -11,6 +11,9 @@ ROOT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")"/.. && pwd)
 ALB_DIR="$ROOT_DIR/12-alb"
 CLUSTER_DIR="$ROOT_DIR/13-ecs-cluster"
 
+PROFILE="devops-sandbox"
+REGION="ap-southeast-2"
+
 DOMAIN_FQDN="demo-node-app-ecs.aws.deanlofts.xyz"
 CLUSTER_NAME=""
 SERVICE_NAME="app"
@@ -25,6 +28,7 @@ info() { printf "${C_INFO}[INFO]${C_RESET} %s\n" "$*"; }
 ok()   { printf "${C_OK}[ OK ]${C_RESET} %s\n" "$*"; }
 err()  { printf "${C_FAIL}[FAIL]${C_RESET} %s\n" "$*"; }
 require() { command -v "$1" >/dev/null 2>&1 || { err "Required command '$1' not found"; exit 1; }; }
+aws_cli() { aws --profile "$PROFILE" --region "$REGION" "$@"; }
 
 parse_args() {
   while [[ $# -gt 0 ]]; do
@@ -74,7 +78,7 @@ check_tg_health() {
   local TG
   TG=$(terraform -chdir="$ALB_DIR" output -raw tg_arn)
   local count
-  count=$(aws elbv2 describe-target-health --target-group-arn "$TG" \
+  count=$(aws_cli elbv2 describe-target-health --target-group-arn "$TG" \
             --query 'TargetHealthDescriptions[?TargetHealth.State==`healthy`]' \
             --output json | jq 'length')
   [[ "$count" -ge 1 ]] || { err "Target group has no healthy targets"; exit 1; }
@@ -84,9 +88,9 @@ check_tg_health() {
 check_ecs_service() {
   require aws
   local running desired
-  running=$(aws ecs describe-services --cluster "$CLUSTER_NAME" --services "$SERVICE_NAME" \
+  running=$(aws_cli ecs describe-services --cluster "$CLUSTER_NAME" --services "$SERVICE_NAME" \
               --query 'services[0].runningCount' --output text)
-  desired=$(aws ecs describe-services --cluster "$CLUSTER_NAME" --services "$SERVICE_NAME" \
+  desired=$(aws_cli ecs describe-services --cluster "$CLUSTER_NAME" --services "$SERVICE_NAME" \
               --query 'services[0].desiredCount' --output text)
   [[ "$running" != "None" && "$running" -ge 1 ]] || { err "ECS service has no running tasks"; exit 1; }
   ok "ECS service running $running/$desired task(s)"
