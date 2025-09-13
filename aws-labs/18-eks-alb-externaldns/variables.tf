@@ -39,3 +39,9 @@ variable "externaldns_service_account" {
   type        = string
   default     = "external-dns"
 }
+
+variable "manage_k8s" {
+  description = "If true, install LBC and ExternalDNS via Helm"
+  type        = bool
+  default     = true
+}

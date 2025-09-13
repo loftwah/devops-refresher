@@ -45,48 +45,9 @@ Outputs:
 - `lbc_role_arn` – Annotate the LBC service account.
 - `externaldns_role_arn` – Annotate the ExternalDNS service account.
 
-## Install AWS Load Balancer Controller
+## Controllers
 
-Using Helm (values inline for clarity):
-
-```bash
-helm repo add eks https://aws.github.io/eks-charts
-helm repo update
-
-kubectl create namespace kube-system --dry-run=client -o yaml | kubectl apply -f - || true
-
-helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-controller \
-  -n kube-system \
-  --set clusterName=<your-eks-cluster-name> \
-  --set image.repository=602401143452.dkr.ecr.<region>.amazonaws.com/amazon/aws-load-balancer-controller \
-  --set serviceAccount.create=true \
-  --set serviceAccount.name=aws-load-balancer-controller \
-  --set serviceAccount.annotations."eks\.amazonaws\.com/role-arn"=$(terraform output -raw lbc_role_arn)
-```
-
-Notes:
-
-- Ensure the ECR repository account (602401143452) matches your region for the controller image.
-- If you prefer to re-use a pre-created SA, set `serviceAccount.create=false` and annotate it with the role ARN.
-
-## Install ExternalDNS
-
-```bash
-helm repo add bitnami https://charts.bitnami.com/bitnami
-helm repo update
-
-kubectl create namespace external-dns --dry-run=client -o yaml | kubectl apply -f - || true
-
-helm upgrade --install external-dns bitnami/external-dns \
-  -n external-dns \
-  --set provider=aws \
-  --set policy=upsert-only \
-  --set txtOwnerId=devops-refresher-staging \
-  --set domainFilters[0]=aws.deanlofts.xyz \
-  --set serviceAccount.create=true \
-  --set serviceAccount.name=external-dns \
-  --set serviceAccount.annotations."eks\.amazonaws\.com/role-arn"=$(terraform output -raw externaldns_role_arn)
-```
+No manual Helm steps are required. This lab installs the AWS Load Balancer Controller and ExternalDNS via Terraform, using the IRSA roles it provisions. Disable with `-var manage_k8s=false` if you want to manage them yourself.
 
 ## Example Ingress (demo app)
 

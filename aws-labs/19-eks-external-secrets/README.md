@@ -12,19 +12,25 @@ Create a least‑privilege IRSA role for External Secrets Operator (ESO) to read
 
 ## Apply
 
+This lab auto-discovers the OIDC provider ARN/URL from Lab 17's remote state.
+
 ```bash
 cd aws-labs/19-eks-external-secrets
 terraform init
-terraform apply \
-  -var region=$AWS_REGION \
-  -var oidc_provider_arn=<oidc_provider_arn> \
-  -var oidc_provider_url=<oidc_provider_url> \
-  -var ssm_path_prefix=/devops-refresher/staging/app \
-  -var secrets_prefix=/devops-refresher/staging/app \
-  -auto-approve
+terraform apply -auto-approve
 
 echo "ESO_ROLE_ARN=$(terraform output -raw role_arn)"
 ```
+
+Notes:
+
+- Overrides (optional):
+  - `-var oidc_provider_arn=...` and `-var oidc_provider_url=...` to bypass remote state lookup.
+  - `-var namespace=external-secrets` and `-var service_account=external-secrets` if you use custom names.
+  - `-var ssm_path_prefix=/your/prefix` and `-var secrets_prefix=/your/prefix` (defaults to `/devops-refresher/staging/app`).
+  - `-var aws_profile=devops-sandbox` if you use a non-default profile name.
+
+Warning: Ensure Terraform uses the same AWS account as Lab 17. If you accidentally created resources in a different account, destroy them with the same credentials used originally, then re-run apply with `-var aws_profile=<correct-profile>` or `AWS_PROFILE=<correct-profile>`.
 
 Annotate the ESO controller ServiceAccount with the role arn:
 
@@ -57,3 +63,11 @@ helm upgrade --install demo aws-labs/kubernetes/helm/demo-app \
 - `kubectl get externalsecret -A` shows synced status.
 - `kubectl get secret demo-app-env -o yaml` shows expected keys.
 - Pod has env vars from `demo-app-env` via `envFrom`.
+
+## Validation
+
+Run the validator:
+
+```bash
+bash aws-labs/scripts/validate-eks-external-secrets.sh
+```

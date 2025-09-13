@@ -22,6 +22,18 @@ data "aws_iam_openid_connect_provider" "eks" {
   arn = local.oidc_provider_arn
 }
 
+# EKS cluster connection (for Helm/Kubernetes providers)
+data "aws_eks_cluster" "this" {
+  name = data.terraform_remote_state.eks.outputs.cluster_name
+}
+
+data "aws_eks_cluster_auth" "this" {
+  name = data.terraform_remote_state.eks.outputs.cluster_name
+}
+
+# Guardrail: fail if not in the expected account
+data "aws_caller_identity" "current" {}
+
 # ACM certificate for EKS domain
 resource "aws_acm_certificate" "eks" {
   domain_name       = var.eks_domain_fqdn
@@ -163,4 +175,64 @@ resource "aws_iam_policy" "externaldns" {
 resource "aws_iam_role_policy_attachment" "externaldns_attach" {
   role       = aws_iam_role.externaldns.name
   policy_arn = aws_iam_policy.externaldns.arn
+}
+
+# Optional: Install controllers via Helm to avoid manual steps
+resource "helm_release" "aws_load_balancer_controller" {
+  count            = var.manage_k8s ? 1 : 0
+  name             = "aws-load-balancer-controller"
+  repository       = "https://aws.github.io/eks-charts"
+  chart            = "aws-load-balancer-controller"
+  namespace        = var.lbc_namespace
+  create_namespace = true
+  atomic           = true
+  cleanup_on_fail  = true
+
+  depends_on = [aws_iam_role_policy_attachment.lbc_attach]
+
+  set = [
+    {
+      name  = "clusterName"
+      value = data.terraform_remote_state.eks.outputs.cluster_name
+    },
+    {
+      name  = "serviceAccount.create"
+      value = "true"
+    },
+    {
+      name  = "serviceAccount.name"
+      value = var.lbc_service_account
+    },
+    {
+      name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
+      value = aws_iam_role.lbc.arn
+    }
+  ]
+}
+
+resource "helm_release" "external_dns" {
+  count            = var.manage_k8s ? 1 : 0
+  name             = "external-dns"
+  repository       = "https://charts.bitnami.com/bitnami"
+  chart            = "external-dns"
+  namespace        = var.externaldns_namespace
+  create_namespace = true
+  atomic           = true
+  cleanup_on_fail  = true
+
+  depends_on = [
+    aws_iam_role_policy_attachment.externaldns_attach,
+    helm_release.aws_load_balancer_controller[0]
+  ]
+
+  set = [
+    { name = "provider",                  value = "aws" },
+    { name = "policy",                    value = "upsert-only" },
+    { name = "aws.region",                value = var.region },
+    { name = "txtOwnerId",                value = data.aws_route53_zone.this.zone_id },
+    { name = "domainFilters[0]",          value = var.hosted_zone_name },
+    { name = "serviceAccount.create",     value = "true" },
+    { name = "serviceAccount.name",       value = var.externaldns_service_account },
+    { name = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn", value = aws_iam_role.externaldns.arn }
+  ]
 }
