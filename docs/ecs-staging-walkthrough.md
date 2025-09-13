@@ -16,7 +16,7 @@ Goal: Recreate a production-like staging environment for a containerized web app
 - Compute: ECS Fargate cluster + services; one service per app.
 - Images: ECR repositories per app.
 - Config/Secrets: SSM Parameter Store / Secrets Manager.
-- Observability: CloudWatch logs/metrics, dashboards, and alarms.
+- Observability: CloudWatch logs/metrics, dashboards, and alarms (see `aws-labs/16-observability.md`).
 - CI/CD: CodeBuild + CodePipeline (or GitHub Actions) to build/push/deploy.
 
 ## Build It Incrementally

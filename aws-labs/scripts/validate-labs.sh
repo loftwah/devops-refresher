@@ -31,6 +31,7 @@ PREFERRED=(
   validate-ssm-params.sh
   validate-backend.sh
   validate-iam.sh
+  validate-observability.sh
   validate-cicd.sh
   validate-delegation.sh
   validate-demo-app-repo.sh

@@ -19,6 +19,7 @@ Suggested order (high-level):
 - 13 – ECS Cluster (shared)
 - 14 – ECS Service (app)
 - 15 – CI/CD: CodePipeline to ECS
+- 16 – Observability (CloudWatch logs, metrics, alarms, dashboard)
 
 ## Backend and State
 
