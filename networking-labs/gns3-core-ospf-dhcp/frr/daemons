@@ -1,0 +1,13 @@
+# FRR daemons configuration (Debian/Ubuntu style)
+zebra=yes
+bgpd=no
+ospfd=yes
+ospf6d=no
+isisd=no
+ripd=no
+ripngd=no
+ldpd=no
+eigrpd=no
+babeld=no
+bfdd=no
+vrrpd=no

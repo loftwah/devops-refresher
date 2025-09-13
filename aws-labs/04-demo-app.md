@@ -61,7 +61,8 @@ loftwah/demo-node-app
 
 2. Build and push an image to ECR.
    - Option A (CI/CodeBuild): use `buildspec.yml` with CodePipeline/CodeBuild.
-   - Option B (local): `scripts/push-ecr.sh` pushes `:staging` and `:<git-sha>` to your ECR.
+
+- Option B (local): `aws-labs/scripts/push-ecr.sh` pushes `:staging` and `:<git-sha>` to your ECR.
 
 3. Configure runtime env (ECS/EKS).
    - Required env: `APP_ENV`, `LOG_LEVEL`, `S3_BUCKET`, `DB_HOST/PORT/USER/PASS/NAME/SSL`, `REDIS_HOST/PORT[/PASS]`.

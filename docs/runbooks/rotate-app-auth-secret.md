@@ -31,8 +31,9 @@ Goal: Safely rotate the application authentication secret stored in AWS Secrets 
    - ECS: `terraform apply` in `aws-labs/14-ecs-service` or trigger a new deployment; this forces tasks to restart with the latest secret value.
 
 5. Validate:
-   - Use `scripts/print-ssm-params.sh /devops-refresher/<env>/app` to confirm the secret exists (set `MASK_SECRETS=1` to mask output).
-   - Check the app’s `/healthz` and auth flows.
+
+- Use `aws-labs/scripts/print-ssm-params.sh /devops-refresher/<env>/app` to confirm the secret exists (set `MASK_SECRETS=1` to mask output).
+  - Check the app’s `/healthz` and auth flows.
 
 6. Clean up compatibility window:
    - If you temporarily validated with both secrets, remove the old secret from app config after traffic is stable.

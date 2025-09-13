@@ -109,13 +109,13 @@ Lean defaults for cost/clarity. Turn on what your workloads actually use. Keep N
 Functional checks depend on later labs (ECS/ECR/Logs). For now, validate presence/config:
 
 ```bash
-scripts/validate-vpc-endpoints.sh \
+aws-labs/scripts/validate-vpc-endpoints.sh \
   --profile devops-sandbox \
   --region ap-southeast-2 \
   --vpc-id <your-vpc-id>
 
 # If you enabled extras, override expected list
-scripts/validate-vpc-endpoints.sh \
+aws-labs/scripts/validate-vpc-endpoints.sh \
   --profile devops-sandbox \
   --region ap-southeast-2 \
   --vpc-id <your-vpc-id> \

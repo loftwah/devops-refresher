@@ -43,7 +43,7 @@ Required vs Optional
 
 - Console → VPC → Endpoints: verify type, Private DNS, Subnets (2 private), and SG references.
 - Console → Route Tables → private table: S3 prefix list route appears when S3 Gateway is enabled.
-- Script (structure‑only): `scripts/validate-vpc-endpoints.sh --profile devops-sandbox --region ap-southeast-2 --vpc-id <vpc-id>`
+- Script (structure‑only): `aws-labs/scripts/validate-vpc-endpoints.sh --profile devops-sandbox --region ap-southeast-2 --vpc-id <vpc-id>`
   - If you enabled extras, pass them: `--expect ssm,ec2messages,ssmmessages,ecr.api,ecr.dkr,logs,secretsmanager`
 
 ## Toggles (When to Use)

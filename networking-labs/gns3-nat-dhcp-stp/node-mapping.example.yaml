@@ -1,0 +1,27 @@
+# Example mapping for NAT + DHCP + STP lab
+
+edge:
+  wan_if: eth0
+  lan_if: eth1 # trunk carrying VLANs 10,20
+
+sw1:
+  br: br0
+
+sw2:
+  br: br0
+
+dhcp:
+  if: eth0
+
+svc:
+  ip: 10.10.20.10/24
+
+h1:
+  vlan: 10
+
+h2:
+  vlan: 10
+
+notes:
+  - Ensure edge has IPs 10.10.10.1/24 on eth1.10 and 10.10.20.1/24 on eth1.20
+  - Server SVC listens on 0.0.0.0:443

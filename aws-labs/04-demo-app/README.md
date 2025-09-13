@@ -8,7 +8,7 @@ This lab uses the application in [loftwah/demo-node-app](https://github.com/loft
 
 ```bash
 cd <cloned app repo>
-bash scripts/push-ecr.sh
+bash aws-labs/scripts/push-ecr.sh
 ```
 
 2. Deploy via Terraform (ECS service uses `:staging` by default).

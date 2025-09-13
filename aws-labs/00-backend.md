@@ -128,7 +128,7 @@ Lock Info:
 
 ## Automated Validation
 
-- Run `bash scripts/validate-backend.sh` from the repo root.
+- Run `bash aws-labs/scripts/validate-backend.sh` from the repo root.
 - Checks performed:
   - Reads the bucket name from `aws-labs/00-backend-bootstrap` outputs
   - Verifies the S3 bucket exists and the state object key `global/s3/terraform.tfstate` is present

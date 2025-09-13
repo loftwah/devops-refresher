@@ -34,13 +34,13 @@ This repo automates everything needed for ECS Exec on Fargate. If Exec fails, so
 Run all validators:
 
 ```bash
-scripts/validate-labs.sh
+aws-labs/scripts/validate-labs.sh
 ```
 
 To run only the ECS Exec validator:
 
 ```bash
-scripts/validate-ecs-exec.sh
+aws-labs/scripts/validate-ecs-exec.sh
 ```
 
 ## One-line usage
@@ -48,13 +48,13 @@ scripts/validate-ecs-exec.sh
 - Open a shell into the first RUNNING task:
 
 ```bash
-scripts/ecs-exec.sh
+aws-labs/scripts/ecs-exec.sh
 ```
 
 - Or pass a specific task ID/ARN:
 
 ```bash
-scripts/ecs-exec.sh aa0c7c8f33e94cd4853ee4233a3bc551
+aws-labs/scripts/ecs-exec.sh aa0c7c8f33e94cd4853ee4233a3bc551
 ```
 
 The validator confirms:

@@ -22,4 +22,4 @@
 ## Acceptance Criteria
 
 - You can identify the root cause for each scenario and restore health.
-- Scripts under `scripts/` speed up inspection (logs, exec, env, routes).
+- Scripts under `aws-labs/scripts/` speed up inspection (logs, exec, env, routes).

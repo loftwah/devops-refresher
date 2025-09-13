@@ -85,10 +85,10 @@ Optional quick test
 
 ## Delegation Validator Script
 
-Use `scripts/validate-delegation.sh` to check nameserver delegation and SOA:
+Use `aws-labs/scripts/validate-delegation.sh` to check nameserver delegation and SOA:
 
 ```
-scripts/validate-delegation.sh
+aws-labs/scripts/validate-delegation.sh
 ```
 
 By default it validates `aws.deanlofts.xyz` against your Route 53 nameserver set. Add `--verbose` to include a `dig +trace` summary, or override with `--domain`/`--expect-ns` if you ever change them.
