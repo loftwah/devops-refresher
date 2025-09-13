@@ -237,8 +237,11 @@ data "aws_iam_policy_document" "codepipeline_policy" {
   statement {
     effect = "Allow"
     actions = [
+      "ecs:DescribeClusters",
       "ecs:DescribeServices",
       "ecs:DescribeTaskDefinition",
+      "ecs:DescribeTaskSets",
+      "ecs:ListTaskDefinitions",
       "ecs:RegisterTaskDefinition",
       "ecs:UpdateService",
       "iam:PassRole"

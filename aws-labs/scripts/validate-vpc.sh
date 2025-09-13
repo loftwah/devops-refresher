@@ -16,8 +16,8 @@ err()  { printf "${C_FAIL}[FAIL]${C_RESET} %s\n" "$*"; }
 
 require() { command -v "$1" >/dev/null 2>&1 || { err "Required command '$1' not found"; exit 1; }; }
 
-AWS_PROFILE_EFFECTIVE=""
-AWS_REGION_EFFECTIVE=""
+PROFILE="devops-sandbox"
+REGION="ap-southeast-2"
 PROFILE_FROM_ARGS=""
 REGION_FROM_ARGS=""
 VPC_ID_OVERRIDE=""
@@ -26,15 +26,13 @@ EXPECT_AZS=("ap-southeast-2a" "ap-southeast-2b")
 parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      -p|--profile) PROFILE_FROM_ARGS="$2"; shift 2 ;;
-      -r|--region)  REGION_FROM_ARGS="$2";  shift 2 ;;
+      # Profile/region are enforced by this lab; flags intentionally not supported
       --vpc-id)     VPC_ID_OVERRIDE="$2";   shift 2 ;;
       --expect-azs) IFS=',' read -r -a EXPECT_AZS <<< "$2"; shift 2 ;;
       -h|--help)
         cat <<EOF
 Usage: $(basename "$0") [options]
-  -p, --profile NAME      AWS profile to use (default from providers.tf or env)
-  -r, --region  NAME      AWS region to use (default from env or variables.tf)
+  (Profile/region are enforced by this lab: devops-sandbox / ap-southeast-2)
       --vpc-id ID         Override VPC ID (skip reading Terraform output)
       --expect-azs CSV    Expected AZs, e.g. ap-southeast-2a,ap-southeast-2b
 EOF
@@ -44,30 +42,11 @@ EOF
   done
 }
 
-aws_cli() {
-  local region_flag=( ) profile_flag=( )
-  [[ -n "${AWS_REGION_EFFECTIVE:-}" ]] && region_flag=(--region "$AWS_REGION_EFFECTIVE")
-  [[ -n "${AWS_PROFILE_EFFECTIVE:-}" ]] && profile_flag=(--profile "$AWS_PROFILE_EFFECTIVE")
-  aws "${profile_flag[@]}" "${region_flag[@]}" "$@"
-}
+aws_cli() { aws --profile "$PROFILE" --region "$REGION" "$@"; }
 
 discover_defaults() {
-  # Discover default profile from providers.tf in the VPC stack
-  local profile_default=""
-  if [[ -f "$VPC_DIR/providers.tf" ]]; then
-    profile_default=$(awk '/variable "aws_profile"/,/}/ { if ($1=="default") { gsub(/"/, "", $3); print $3 } }' "$VPC_DIR/providers.tf" || true)
-  fi
-  AWS_PROFILE_EFFECTIVE="${PROFILE_FROM_ARGS:-${AWS_PROFILE:-$profile_default}}"
-
-  # Discover default region: args > env > variables.tf default
-  local region_default=""
-  if [[ -f "$VPC_DIR/variables.tf" ]]; then
-    region_default=$(awk '/variable "region"/,/}/ { if ($1=="default") { gsub(/"/, "", $3); print $3 } }' "$VPC_DIR/variables.tf" || true)
-  fi
-  AWS_REGION_EFFECTIVE="${REGION_FROM_ARGS:-${AWS_REGION:-${AWS_DEFAULT_REGION:-$region_default}}}"
-
-  [[ -n "$AWS_PROFILE_EFFECTIVE" ]] && info "Using AWS profile: $AWS_PROFILE_EFFECTIVE"
-  [[ -n "$AWS_REGION_EFFECTIVE"  ]] && info "Using AWS region:  $AWS_REGION_EFFECTIVE"
+  info "Using AWS profile: $PROFILE"
+  info "Using AWS region:  $REGION"
 }
 
 read_tf_outputs() {

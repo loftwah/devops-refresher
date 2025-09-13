@@ -22,23 +22,21 @@ err()  { printf "${C_FAIL}[FAIL]${C_RESET} %s\n" "$*"; }
 
 require() { command -v "$1" >/dev/null 2>&1 || { err "Required command '$1' not found"; exit 1; }; }
 
-AWS_PROFILE_EFFECTIVE="${AWS_PROFILE:-}"
-AWS_REGION_EFFECTIVE="${AWS_REGION:-${AWS_DEFAULT_REGION:-}}"
+PROFILE="devops-sandbox"
+REGION="ap-southeast-2"
 ROLE_EXEC_NAME="devops-refresher-staging-ecs-execution"
 ROLE_TASK_NAME="devops-refresher-staging-app-task"
 
 parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      -p|--profile) AWS_PROFILE_EFFECTIVE="$2"; shift 2 ;;
-      -r|--region)  AWS_REGION_EFFECTIVE="$2"; shift 2 ;;
+      # Profile/region are enforced by this lab; flags intentionally not supported
       --exec-role)  ROLE_EXEC_NAME="$2"; shift 2 ;;
       --task-role)  ROLE_TASK_NAME="$2"; shift 2 ;;
       -h|--help)
         cat <<EOF
 Usage: $(basename "$0") [options]
-  -p, --profile NAME   AWS profile
-  -r, --region  NAME   AWS region
+  (Profile/region are enforced by this lab: devops-sandbox / ap-southeast-2)
       --exec-role NAME Execution role name (default: $ROLE_EXEC_NAME)
       --task-role NAME Task role name (default: $ROLE_TASK_NAME)
 EOF
@@ -48,21 +46,9 @@ EOF
   done
 }
 
-aws_cli() {
-  local region_flag=( ) profile_flag=( )
-  [[ -n "${AWS_REGION_EFFECTIVE:-}" ]] && region_flag=(--region "$AWS_REGION_EFFECTIVE")
-  [[ -n "${AWS_PROFILE_EFFECTIVE:-}" ]] && profile_flag=(--profile "$AWS_PROFILE_EFFECTIVE")
-  aws "${profile_flag[@]}" "${region_flag[@]}" "$@"
-}
+aws_cli() { aws --profile "$PROFILE" --region "$REGION" "$@"; }
 
 discover_defaults() {
-  # Default profile/region from providers.tf if unset
-  if [[ -z "${AWS_PROFILE_EFFECTIVE:-}" && -f "$IAM_DIR/providers.tf" ]]; then
-    AWS_PROFILE_EFFECTIVE=$(awk '/variable "aws_profile"/,/}/ { if ($1=="default") { gsub(/"/, "", $3); print $3 } }' "$IAM_DIR/providers.tf" || true)
-  fi
-  if [[ -z "${AWS_REGION_EFFECTIVE:-}" && -f "$IAM_DIR/providers.tf" ]]; then
-    AWS_REGION_EFFECTIVE=$(awk '/variable "region"/,/}/ { if ($1=="default") { gsub(/"/, "", $3); print $3 } }' "$IAM_DIR/providers.tf" || true)
-  fi
   # If Terraform outputs exist, prefer discovered names/ARNs
   if command -v terraform >/dev/null 2>&1; then
     if terraform -chdir="$IAM_DIR" init -input=false >/dev/null 2>&1; then
@@ -80,8 +66,8 @@ discover_defaults() {
       fi
     fi
   fi
-  [[ -n "$AWS_PROFILE_EFFECTIVE" ]] && info "Using AWS profile: $AWS_PROFILE_EFFECTIVE"
-  [[ -n "$AWS_REGION_EFFECTIVE"  ]] && info "Using AWS region:  $AWS_REGION_EFFECTIVE"
+  info "Using AWS profile: $PROFILE"
+  info "Using AWS region:  $REGION"
 }
 
 check_role() {

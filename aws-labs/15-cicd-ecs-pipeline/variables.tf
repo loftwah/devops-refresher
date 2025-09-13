@@ -64,6 +64,12 @@ variable "aws_profile" {
   default     = "devops-sandbox"
 }
 
+variable "expected_account_id" {
+  description = "Guardrail: expected AWS account ID. Plan/apply fails if not matched"
+  type        = string
+  default     = "139294524816"
+}
+
 variable "use_inline_buildspec" {
   description = "If true, inject inline buildspec into CodeBuild project; otherwise, expect buildspec in app repo"
   type        = bool

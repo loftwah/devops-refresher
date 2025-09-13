@@ -108,6 +108,16 @@ resource "aws_codebuild_project" "app" {
     type      = "CODEPIPELINE"
     buildspec = var.use_inline_buildspec ? local.inline_buildspec_effective : null
   }
+  lifecycle {
+    precondition {
+      condition     = data.aws_caller_identity.current.account_id == var.expected_account_id
+      error_message = "Wrong AWS account. Expected ${var.expected_account_id}, got ${data.aws_caller_identity.current.account_id}. Set AWS_PROFILE=devops-sandbox."
+    }
+    precondition {
+      condition     = var.region == "ap-southeast-2"
+      error_message = "Wrong region for resources. Expected ap-southeast-2."
+    }
+  }
   tags = local.tags
 }
 
@@ -119,10 +129,10 @@ resource "aws_s3_bucket_policy" "artifacts_access" {
     Version = "2012-10-17",
     Statement = [
       {
-        Sid      = "AllowPipelineAccess",
-        Effect   = "Allow",
+        Sid       = "AllowPipelineAccess",
+        Effect    = "Allow",
         Principal = { AWS = data.terraform_remote_state.iam.outputs.codepipeline_role_arn },
-        Action   = [
+        Action = [
           "s3:GetObject",
           "s3:GetObjectVersion",
           "s3:PutObject"
@@ -133,9 +143,26 @@ resource "aws_s3_bucket_policy" "artifacts_access" {
         ]
       },
       {
-        Sid      = "AllowGetBucketVersioning",
-        Effect   = "Allow",
-        Principal = { AWS = data.terraform_remote_state.iam.outputs.codepipeline_role_arn },
+        Sid       = "AllowCodeBuildAccess",
+        Effect    = "Allow",
+        Principal = { AWS = data.terraform_remote_state.iam.outputs.codebuild_role_arn },
+        Action = [
+          "s3:GetObject",
+          "s3:GetObjectVersion",
+          "s3:PutObject"
+        ],
+        Resource = [
+          local.artifacts_bucket_arn_effective,
+          "${local.artifacts_bucket_arn_effective}/*"
+        ]
+      },
+      {
+        Sid    = "AllowGetBucketVersioning",
+        Effect = "Allow",
+        Principal = { AWS = [
+          data.terraform_remote_state.iam.outputs.codepipeline_role_arn,
+          data.terraform_remote_state.iam.outputs.codebuild_role_arn
+        ] },
         Action   = ["s3:GetBucketVersioning"],
         Resource = local.artifacts_bucket_arn_effective
       }
@@ -152,6 +179,16 @@ resource "aws_codepipeline" "app" {
   artifact_store {
     location = local.artifacts_bucket_name_effective
     type     = "S3"
+  }
+  lifecycle {
+    precondition {
+      condition     = data.aws_caller_identity.current.account_id == var.expected_account_id
+      error_message = "Wrong AWS account. Expected ${var.expected_account_id}, got ${data.aws_caller_identity.current.account_id}. Set AWS_PROFILE=devops-sandbox."
+    }
+    precondition {
+      condition     = var.region == "ap-southeast-2"
+      error_message = "Wrong region for resources. Expected ap-southeast-2."
+    }
   }
 
   stage {

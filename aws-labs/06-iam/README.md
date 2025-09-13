@@ -65,12 +65,12 @@ Why this happens and how to avoid it:
 - CodeBuild role (build image + push to ECR):
   - CloudWatch Logs: `logs:CreateLogGroup`, `logs:CreateLogStream`, `logs:PutLogEvents`.
   - ECR push/pull: `ecr:GetAuthorizationToken`, `ecr:BatchCheckLayerAvailability`, `ecr:InitiateLayerUpload`, `ecr:UploadLayerPart`, `ecr:CompleteLayerUpload`, `ecr:PutImage`, `ecr:BatchGetImage`, `ecr:DescribeRepositories`.
-  - S3 artifacts (if using CODEPIPELINE artifacts type, buildspec emits `imagedefinitions.json`): `s3:PutObject` on the artifacts bucket/prefix (granted by pipeline bucket policy in Lab 15).
+  - S3 artifacts via bucket policy in Lab 15: `s3:GetObject`, `s3:GetObjectVersion` (download input from CodePipeline), and `s3:PutObject` when applicable.
   - Optional (only if build needs them): `ssm:GetParameter(s)`/`GetParametersByPath` for build-time parameters; KMS `Decrypt` if reading SecureStrings; Secrets Manager `GetSecretValue` if using BuildKit `--secret` sourced from env.
 
 - S3 artifacts bucket policy (Lab 15):
-  - Grants the CodePipeline role access to `s3:GetObject`, `s3:GetObjectVersion`, `s3:PutObject` on the bucket and prefix.
-  - Grants `s3:GetBucketVersioning` on the bucket.
+  - Grants BOTH CodePipeline and CodeBuild roles access to `s3:GetObject`, `s3:GetObjectVersion`, `s3:PutObject` on the bucket and prefix.
+  - Grants `s3:GetBucketVersioning` on the bucket to both roles.
 
 - Region alignment:
   - CodeConnections ARN region and CodePipeline region must match (here: `ap-southeast-2`).

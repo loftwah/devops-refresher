@@ -16,8 +16,8 @@ err()  { printf "${C_FAIL}[FAIL]${C_RESET} %s\n" "$*"; }
 
 require() { command -v "$1" >/dev/null 2>&1 || { err "Required command '$1' not found"; exit 1; }; }
 
-AWS_PROFILE_EFFECTIVE=""
-AWS_REGION_EFFECTIVE=""
+PROFILE="devops-sandbox"
+REGION="ap-southeast-2"
 PROFILE_FROM_ARGS=""
 REGION_FROM_ARGS=""
 VPC_ID_OVERRIDE=""
@@ -28,8 +28,7 @@ EXPECT_S3_GATEWAY=true
 usage() {
   cat <<EOF
 Usage: $(basename "$0") [options]
-  -p, --profile NAME   AWS profile to use (default from providers.tf or env)
-  -r, --region  NAME   AWS region to use (default from env or variables.tf)
+  (Profile/region are enforced by this lab: devops-sandbox / ap-southeast-2)
       --vpc-id  ID     Override VPC ID (skip reading Terraform remote state)
       --no-s3          Do not expect S3 gateway endpoint
       --expect CSV     Override expected interface endpoints (e.g. ssm,ec2messages,ssmmessages,ecr.api,ecr.dkr,logs)
@@ -39,8 +38,7 @@ EOF
 parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      -p|--profile) PROFILE_FROM_ARGS="$2"; shift 2 ;;
-      -r|--region)  REGION_FROM_ARGS="$2";  shift 2 ;;
+      # Profile/region are enforced by this lab; flags intentionally not supported
       --vpc-id)     VPC_ID_OVERRIDE="$2";   shift 2 ;;
       --no-s3)      EXPECT_S3_GATEWAY=false; shift 1 ;;
       --expect)     IFS=',' read -r -a EXPECTED_INTERFACE_SUFFIXES <<< "$2"; shift 2 ;;
@@ -50,25 +48,9 @@ parse_args() {
   done
 }
 
-aws_cli() {
-  local region_flag=( ) profile_flag=( )
-  [[ -n "${AWS_REGION_EFFECTIVE:-}" ]] && region_flag=(--region "$AWS_REGION_EFFECTIVE")
-  [[ -n "${AWS_PROFILE_EFFECTIVE:-}" ]] && profile_flag=(--profile "$AWS_PROFILE_EFFECTIVE")
-  aws "${profile_flag[@]}" "${region_flag[@]}" "$@"
-}
+aws_cli() { aws --profile "$PROFILE" --region "$REGION" "$@"; }
 
-discover_defaults() {
-  # Defaults from providers.tf
-  local profile_default="" region_default=""
-  if [[ -f "$EP_DIR/providers.tf" ]]; then
-    profile_default=$(awk '/variable "aws_profile"/,/}/ { if ($1=="default") { gsub(/"/, "", $3); print $3 } }' "$EP_DIR/providers.tf" || true)
-    region_default=$(awk '/variable "region"/,/}/ { if ($1=="default") { gsub(/"/, "", $3); print $3 } }' "$EP_DIR/providers.tf" || true)
-  fi
-  AWS_PROFILE_EFFECTIVE="${PROFILE_FROM_ARGS:-${AWS_PROFILE:-$profile_default}}"
-  AWS_REGION_EFFECTIVE="${REGION_FROM_ARGS:-${AWS_REGION:-${AWS_DEFAULT_REGION:-$region_default}}}"
-  [[ -n "$AWS_PROFILE_EFFECTIVE" ]] && info "Using AWS profile: $AWS_PROFILE_EFFECTIVE"
-  [[ -n "$AWS_REGION_EFFECTIVE"  ]] && info "Using AWS region:  $AWS_REGION_EFFECTIVE"
-}
+discover_defaults() { info "Using AWS profile: $PROFILE"; info "Using AWS region:  $REGION"; }
 
 read_vpc_from_state() {
   require terraform
@@ -95,7 +77,7 @@ check_gateway_s3() {
   fi
   local id service type
   # Avoid multiline parsing edge-cases by keeping this on one logical line
-  read -r id service type < <(aws_cli ec2 describe-vpc-endpoints --filters "Name=vpc-id,Values=$VPC_ID" "Name=service-name,Values=com.amazonaws.${AWS_REGION_EFFECTIVE}.s3" --query 'VpcEndpoints[0].[VpcEndpointId,ServiceName,VpcEndpointType]' --output text || true)
+  read -r id service type < <(aws_cli ec2 describe-vpc-endpoints --filters "Name=vpc-id,Values=$VPC_ID" "Name=service-name,Values=com.amazonaws.${REGION}.s3" --query 'VpcEndpoints[0].[VpcEndpointId,ServiceName,VpcEndpointType]' --output text || true)
   [[ "$id" != "None" && -n "$id" ]] || { err "S3 gateway endpoint not found"; exit 1; }
   [[ "$type" == "Gateway" ]] || { err "S3 endpoint is not type Gateway (got: $type)"; exit 1; }
   ok "S3 gateway endpoint present: $id"
@@ -109,7 +91,7 @@ check_gateway_s3() {
 check_interface_endpoints() {
   local suffix svc id type dns_enabled subnets sgs
   for suffix in "${EXPECTED_INTERFACE_SUFFIXES[@]}"; do
-    svc="com.amazonaws.${AWS_REGION_EFFECTIVE}.${suffix}"
+    svc="com.amazonaws.${REGION}.${suffix}"
     # Keep to one logical line to avoid subshell parsing issues
     read -r id type dns_enabled subnets sgs < <(aws_cli ec2 describe-vpc-endpoints --filters "Name=vpc-id,Values=$VPC_ID" "Name=service-name,Values=$svc" --query 'VpcEndpoints[0].[VpcEndpointId,VpcEndpointType,PrivateDnsEnabled,SubnetIds,Groups[].GroupId]' --output text || true)
     [[ "$id" != "None" && -n "$id" ]] || { err "Interface endpoint missing: $suffix"; exit 1; }

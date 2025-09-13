@@ -88,6 +88,7 @@ Artifacts Bucket (speed and uniqueness)
   - `artifacts_bucket_randomize`: when creating, appends a short random suffix to ensure global uniqueness (default `true`).
 - `artifacts_bucket_name`: base name used (and used as-is when reusing).
 - The pipeline always points to the effective name; IAM policies are generated for that ARN.
+ - Decision record: see `docs/decisions/ADR-006-artifacts-bucket-policy-ownership.md` for why the bucket policy lives in this lab (resource-owned policy) and grants access to both CodePipeline and CodeBuild roles.
 
 Ownership & Order (IAM vs CI/CD)
 
@@ -175,7 +176,7 @@ Runbook (copy/paste)
 - Start CI (from this lab directory; helper scripts live one level up in `../scripts`):
 
   ```bash
-  EXEC_ID=$(../scripts/codepipeline-start.sh "$PIPELINE_NAME" "$AWS_REGION")
+  EXEC_ID=$(../scripts/codepipeline-start.sh "$PIPELINE_NAME" "$AWS_REGION" "$AWS_PROFILE")
   echo "Execution: $EXEC_ID"
   ```
 
@@ -185,13 +186,13 @@ Runbook (copy/paste)
 - Watch for success:
 
   ```bash
-  ../scripts/verify-pipeline.sh "$PIPELINE_NAME" "$AWS_REGION" "$EXEC_ID"
+  ../scripts/verify-pipeline.sh "$PIPELINE_NAME" "$AWS_REGION" "$AWS_PROFILE" "$EXEC_ID"
   ```
 
 - Verify ECS service rollout and current image (requires `jq`):
 
   ```bash
-  ../scripts/verify-ecs.sh devops-refresher-staging app "$AWS_REGION"
+  ../scripts/verify-ecs.sh devops-refresher-staging app "$AWS_REGION" "$AWS_PROFILE"
   ```
 
 - Probe app health (replace with your ALB DNS or domain):
