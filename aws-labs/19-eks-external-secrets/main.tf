@@ -89,26 +89,16 @@ resource "helm_release" "external_secrets" {
 
   depends_on = [aws_iam_role_policy_attachment.attach]
 
-  set {
-    name  = "installCRDs"
-    value = true
-  }
-  set {
-    name  = "serviceAccount.create"
-    value = true
-  }
-  set {
-    name  = "serviceAccount.name"
-    value = var.service_account
-  }
-  set {
-    name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
-    value = aws_iam_role.eso.arn
-  }
+  set = [
+    { name = "installCRDs", value = "true" },
+    { name = "serviceAccount.create", value = "true" },
+    { name = "serviceAccount.name", value = var.service_account },
+    { name = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn", value = aws_iam_role.eso.arn }
+  ]
 }
 
 resource "kubernetes_manifest" "clustersecretstore_parameterstore" {
-  count = var.manage_k8s ? 1 : 0
+  count      = var.manage_k8s ? 1 : 0
   depends_on = [helm_release.external_secrets]
   manifest = {
     apiVersion = "external-secrets.io/v1beta1"
@@ -134,7 +124,7 @@ resource "kubernetes_manifest" "clustersecretstore_parameterstore" {
 }
 
 resource "kubernetes_manifest" "clustersecretstore_secretsmanager" {
-  count = var.manage_k8s ? 1 : 0
+  count      = var.manage_k8s ? 1 : 0
   depends_on = [helm_release.external_secrets]
   manifest = {
     apiVersion = "external-secrets.io/v1beta1"

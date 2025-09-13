@@ -179,7 +179,7 @@ resource "aws_iam_role_policy_attachment" "externaldns_attach" {
 
 # Optional: Install controllers via Helm to avoid manual steps
 resource "helm_release" "aws_load_balancer_controller" {
-  count            = var.manage_k8s ? 1 : 0
+  count            = (var.manage_lbc || var.manage_k8s) ? 1 : 0
   name             = "aws-load-balancer-controller"
   repository       = "https://aws.github.io/eks-charts"
   chart            = "aws-load-balancer-controller"
@@ -211,7 +211,7 @@ resource "helm_release" "aws_load_balancer_controller" {
 }
 
 resource "helm_release" "external_dns" {
-  count            = var.manage_k8s ? 1 : 0
+  count            = (var.manage_externaldns || var.manage_k8s) ? 1 : 0
   name             = "external-dns"
   repository       = "https://charts.bitnami.com/bitnami"
   chart            = "external-dns"
@@ -222,17 +222,42 @@ resource "helm_release" "external_dns" {
 
   depends_on = [
     aws_iam_role_policy_attachment.externaldns_attach,
-    helm_release.aws_load_balancer_controller[0]
+    helm_release.aws_load_balancer_controller[0],
+    null_resource.external_dns_cleanup
   ]
 
   set = [
-    { name = "provider",                  value = "aws" },
-    { name = "policy",                    value = "upsert-only" },
-    { name = "aws.region",                value = var.region },
-    { name = "txtOwnerId",                value = data.aws_route53_zone.this.zone_id },
-    { name = "domainFilters[0]",          value = var.hosted_zone_name },
-    { name = "serviceAccount.create",     value = "true" },
-    { name = "serviceAccount.name",       value = var.externaldns_service_account },
+    { name = "provider", value = "aws" },
+    { name = "policy", value = "upsert-only" },
+    { name = "aws.region", value = var.region },
+    { name = "txtOwnerId", value = data.aws_route53_zone.this.zone_id },
+    { name = "domainFilters[0]", value = var.hosted_zone_name },
+    { name = "serviceAccount.create", value = "true" },
+    { name = "serviceAccount.name", value = var.externaldns_service_account },
     { name = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn", value = aws_iam_role.externaldns.arn }
   ]
+}
+
+# Ensure any pre-existing external-dns Helm release is removed so Terraform can manage it
+resource "null_resource" "external_dns_cleanup" {
+  count = (var.manage_externaldns || var.manage_k8s) ? 1 : 0
+  triggers = {
+    initial = "true"
+  }
+  provisioner "local-exec" {
+    interpreter = ["/bin/bash", "-c"]
+    command     = <<EOT
+set -euo pipefail
+NS="${var.externaldns_namespace}"
+if command -v helm >/dev/null 2>&1; then
+  if helm -n "$NS" ls -q | grep -qx external-dns; then
+    helm -n "$NS" uninstall external-dns || true
+  fi
+fi
+if command -v kubectl >/dev/null 2>&1; then
+  kubectl -n "$NS" delete secret -l owner=helm,name=external-dns --ignore-not-found
+  kubectl -n "$NS" delete configmap -l owner=helm,name=external-dns --ignore-not-found
+fi
+EOT
+  }
 }

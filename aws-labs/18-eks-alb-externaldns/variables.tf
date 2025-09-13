@@ -41,7 +41,19 @@ variable "externaldns_service_account" {
 }
 
 variable "manage_k8s" {
-  description = "If true, install LBC and ExternalDNS via Helm"
+  description = "Deprecated: use manage_lbc/manage_externaldns"
+  type        = bool
+  default     = false
+}
+
+variable "manage_lbc" {
+  description = "If true, install AWS Load Balancer Controller via Helm"
   type        = bool
   default     = true
+}
+
+variable "manage_externaldns" {
+  description = "If true, install ExternalDNS via Helm"
+  type        = bool
+  default     = false
 }
