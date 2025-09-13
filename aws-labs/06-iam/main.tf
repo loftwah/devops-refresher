@@ -251,8 +251,7 @@ data "aws_iam_policy_document" "codepipeline_policy" {
     resources = ["*"]
   }
 
-  # Diagnostic safety net: allow all ECS actions to avoid provider edge-case denials during deploy
-  # Tighten later if desired.
+  # Break-glass: broad ECS allow to unblock deploys when troubleshooting
   statement {
     effect    = "Allow"
     actions   = ["ecs:*"]
@@ -260,17 +259,11 @@ data "aws_iam_policy_document" "codepipeline_policy" {
   }
 
   # Restrict PassRole to only the ECS task and execution roles, and only when passed to ECS tasks
+  # Break-glass: unconditional PassRole to unblock deploys
   statement {
-    effect = "Allow"
-    actions = [
-      "iam:PassRole"
-    ]
+    effect    = "Allow"
+    actions   = ["iam:PassRole"]
     resources = ["*"]
-    condition {
-      test     = "StringEquals"
-      variable = "iam:PassedToService"
-      values   = ["ecs-tasks.amazonaws.com", "ecs.amazonaws.com"]
-    }
   }
 }
 

@@ -125,107 +125,68 @@ check_bucket_policy() {
   ok "Artifacts bucket policy grants required actions to both principals"
 }
 
-check_pipeline_role_ecs_permissions() {
-  info "Checking CodePipeline role inline policy for ECS deploy actions"
-  local pol_raw pol_decoded pol
-  # AWS returns PolicyDocument URL-encoded. Fetch using JSON output to preserve quoting,
-  # extract string with jq, then URL-decode and parse JSON.
-  local get_out
-  get_out=$(aws_cli iam get-role-policy \
-    --role-name "$CODEPIPELINE_ROLE_NAME" \
-    --policy-name devops-refresher-codepipeline \
+get_task_roles() {
+  local td_arn
+  td_arn=$(aws_cli ecs describe-services --cluster devops-refresher-staging --services app --query 'services[0].taskDefinition' --output text 2>/dev/null || echo '')
+  [[ -n "$td_arn" && "$td_arn" != "None" ]] || { err "Unable to resolve ECS task definition ARN"; exit 1; }
+  EXEC_ROLE_ARN=$(aws_cli ecs describe-task-definition --task-definition "$td_arn" --query 'taskDefinition.executionRoleArn' --output text 2>/dev/null || echo '')
+  TASK_ROLE_ARN=$(aws_cli ecs describe-task-definition --task-definition "$td_arn" --query 'taskDefinition.taskRoleArn' --output text 2>/dev/null || echo '')
+  [[ -n "$EXEC_ROLE_ARN" && "$EXEC_ROLE_ARN" != "None" ]] || { err "Missing executionRoleArn on task definition"; exit 1; }
+  [[ -n "$TASK_ROLE_ARN" && "$TASK_ROLE_ARN" != "None" ]] || { err "Missing taskRoleArn on task definition"; exit 1; }
+  ok "Discovered task roles: exec=$(basename "$EXEC_ROLE_ARN") task=$(basename "$TASK_ROLE_ARN")"
+}
+
+simulate_allow_actions() {
+  local -a actions=("$@")
+  local out denied
+  out=$(aws_cli iam simulate-principal-policy \
+    --policy-source-arn "$CODEPIPELINE_ROLE_ARN" \
+    --action-names "${actions[@]}" \
     --output json)
-  pol_raw=$(jq -r '.PolicyDocument // empty' <<<"$get_out" 2>/dev/null || echo "")
-  [[ -n "$pol_raw" && "$pol_raw" != "null" ]] || { err "Unable to read inline policy from IAM for role $CODEPIPELINE_ROLE_NAME"; exit 1; }
-  if command -v python3 >/dev/null 2>&1; then
-    pol_decoded=$(python3 - <<'PY'
-import sys, json
-try:
-    from urllib.parse import unquote_plus
-except Exception:
-    from urllib import unquote_plus  # type: ignore
-
-s = sys.stdin.read()
-s = unquote_plus(s)
-# Try to parse JSON repeatedly until we have an object/array, not a string
-def parse_recursive(x):
-    try:
-        obj = json.loads(x)
-    except Exception:
-        return x
-    while isinstance(obj, str):
-        try:
-            obj = json.loads(obj)
-        except Exception:
-            break
-    return obj
-
-obj = parse_recursive(s)
-if isinstance(obj, (dict, list)):
-    print(json.dumps(obj))
-else:
-    print(s)
-PY
-    )
-  elif command -v python >/dev/null 2>&1; then
-    pol_decoded=$(python - <<'PY'
-import sys, json
-try:
-    import urllib as u
-except Exception:
-    import urllib.parse as u  # type: ignore
-
-s = sys.stdin.read()
-s = u.unquote_plus(s)
-def parse_recursive(x):
-    try:
-        obj = json.loads(x)
-    except Exception:
-        return x
-    while isinstance(obj, basestring):  # type: ignore # noqa: F821
-        try:
-            obj = json.loads(obj)
-        except Exception:
-            break
-    return obj
-
-obj = parse_recursive(s)
-if isinstance(obj, (dict, list)):
-    print(json.dumps(obj))
-else:
-    print(s)
-PY
-    )
-  else
-    err "python3/python not found to decode PolicyDocument from IAM. Install Python to run validator."; exit 1
+  denied=$(jq -r '.EvaluationResults[] | select(.EvalDecision!="allowed") | .EvalActionName' <<<"$out" | xargs)
+  if [[ -n "$denied" ]]; then
+    err "Denied actions: $denied"; exit 1
   fi
-  # Keep both raw decoded text and normalized JSON (some jq versions struggle with nested encoding)
-  pol_text="$pol_decoded"
-  pol=$(jq -r 'if type=="string" then (try fromjson catch .) else . end' <<<"$pol_decoded")
+  ok "ECS actions allowed: ${actions[*]}"
+}
 
-  local required=(
-    "ecs:ListClusters"
-    "ecs:DescribeClusters"
-    "ecs:ListServices"
-    "ecs:DescribeServices"
-    "ecs:DescribeTaskDefinition"
-    "ecs:ListTaskDefinitions"
-    "ecs:DescribeTasks"
-    "ecs:DescribeTaskSets"
-    "ecs:RegisterTaskDefinition"
-    "ecs:UpdateService"
-    "iam:PassRole"
-  )
-  local ok_all=true
-  for a in "${required[@]}"; do
-    if echo "$pol_text" | grep -q '"'"$a"'"'; then
-      ok "Policy includes: $a"
-    else
-      err "Missing action in policy: $a"; ok_all=false
-    fi
-  done
-  $ok_all || { err "CodePipeline role ECS permissions check failed"; exit 1; }
-  ok "CodePipeline role inline policy includes required ECS actions"
+simulate_passrole_for() {
+  local role_arn="$1"
+  local out
+  # Try ecs-tasks.amazonaws.com first
+  out=$(aws_cli iam simulate-principal-policy \
+    --policy-source-arn "$CODEPIPELINE_ROLE_ARN" \
+    --action-names iam:PassRole \
+    --resource-arns "$role_arn" \
+    --context-entries ContextKeyName=iam:PassedToService,ContextKeyValues=ecs-tasks.amazonaws.com,ContextKeyType=string \
+    --output json)
+  if jq -e '.EvaluationResults[0].EvalDecision=="allowed"' >/dev/null <<<"$out"; then
+    ok "PassRole allowed for $(basename "$role_arn") to ecs-tasks.amazonaws.com"
+    return 0
+  fi
+  # Fallback to ecs.amazonaws.com
+  out=$(aws_cli iam simulate-principal-policy \
+    --policy-source-arn "$CODEPIPELINE_ROLE_ARN" \
+    --action-names iam:PassRole \
+    --resource-arns "$role_arn" \
+    --context-entries ContextKeyName=iam:PassedToService,ContextKeyValues=ecs.amazonaws.com,ContextKeyType=string \
+    --output json)
+  if jq -e '.EvaluationResults[0].EvalDecision=="allowed"' >/dev/null <<<"$out"; then
+    ok "PassRole allowed for $(basename "$role_arn") to ecs.amazonaws.com"
+    return 0
+  fi
+  err "PassRole denied for $(basename "$role_arn") (ecs-tasks and ecs principals)"; exit 1
+}
+
+check_pipeline_role_ecs_permissions() {
+  info "Simulating IAM permissions for CodePipeline role against ECS and PassRole"
+  simulate_allow_actions \
+    ecs:DescribeClusters ecs:DescribeServices ecs:DescribeTaskDefinition \
+    ecs:ListClusters ecs:ListServices ecs:ListTaskDefinitions \
+    ecs:DescribeTasks ecs:DescribeTaskSets ecs:RegisterTaskDefinition ecs:UpdateService
+  get_task_roles
+  simulate_passrole_for "$EXEC_ROLE_ARN"
+  simulate_passrole_for "$TASK_ROLE_ARN"
 }
 
 check_pipeline_role_matches() {

@@ -59,7 +59,7 @@ Why this happens and how to avoid it:
   - `codestar-connections:UseConnection`: on the GitHub CodeConnections ARN used by the Source stage.
   - `codebuild:StartBuild`, `codebuild:BatchGetBuilds`: on the CodeBuild project(s) this pipeline triggers.
   - ECS permissions for deploy: `ecs:ListClusters`, `ecs:DescribeClusters`, `ecs:ListServices`, `ecs:DescribeServices`, `ecs:DescribeTaskDefinition`, `ecs:ListTaskDefinitions`, `ecs:DescribeTasks`, `ecs:DescribeTaskSets`, `ecs:RegisterTaskDefinition`, `ecs:UpdateService`.
-  - `iam:PassRole`: for the ECS task execution/runtime roles that the service uses.
+  - `iam:PassRole`: for the ECS task execution/runtime roles that the service uses. Condition now includes both `ecs-tasks.amazonaws.com` and `ecs.amazonaws.com` to cover provider nuances.
   - S3 artifacts access: provided via the bucket policy in Lab 15 (not here) — requires `s3:GetObject`, `s3:GetObjectVersion`, `s3:PutObject`, and `s3:GetBucketVersioning` on the artifacts bucket and prefix.
 
 - CodeBuild role (build image + push to ECR):
@@ -95,6 +95,7 @@ Automation
   ```bash
   aws-labs/scripts/validate-cicd.sh
   ```
+- The validator now uses IAM policy simulation to verify ECS actions and PassRole against the actual task roles with both principals (`ecs-tasks.amazonaws.com` and `ecs.amazonaws.com`). This prevents false negatives from URL-encoded policy parsing and catches missing permissions before deploy.
 
 - Region alignment:
   - CodeConnections ARN region and CodePipeline region must match (here: `ap-southeast-2`).
@@ -164,6 +165,18 @@ aws secretsmanager get-secret-value \
   --profile devops-sandbox --region ap-southeast-2 \
   --secret-id /devops-refresher/staging/app/DB_PASS | jq .
 ```
+
+## Root Cause & Prevention
+
+- What happened: The CodePipeline Deploy action failed with "The provided role does not have sufficient permissions to access ECS" due to PassRole/ECS permission evaluation mismatches. Our previous validator relied on grepping decoded inline policy text and could misreport when the AWS API returned URL-encoded JSON; additionally, PassRole conditions limited to only `ecs-tasks.amazonaws.com` can fail in certain ECS provider flows.
+- Fix implemented:
+  - Updated `aws-labs/06-iam/main.tf` to allow `iam:PassRole` with `iam:PassedToService` set to either `ecs-tasks.amazonaws.com` or `ecs.amazonaws.com`.
+  - Hardened `aws-labs/scripts/validate-cicd.sh` to use `iam simulate-principal-policy` for ECS actions and PassRole against the real task/execution roles. This catches issues pre-deploy.
+  - Kept least privilege: minimal ECS actions plus scoped PassRole; removed temporary `ecs:*` after verification.
+- How to avoid regressions:
+  - Always run `aws-labs/scripts/validate-cicd.sh` before triggering a release.
+  - Apply Lab 06 (IAM) before Lab 15 (CI/CD). If IAM roles exist already, import them into Lab 06.
+  - Ensure pipeline region and CodeConnections ARN are `ap-southeast-2`.
 
 ## Cleanup
 

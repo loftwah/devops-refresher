@@ -88,7 +88,7 @@ Artifacts Bucket (speed and uniqueness)
   - `artifacts_bucket_randomize`: when creating, appends a short random suffix to ensure global uniqueness (default `true`).
 - `artifacts_bucket_name`: base name used (and used as-is when reusing).
 - The pipeline always points to the effective name; IAM policies are generated for that ARN.
- - Decision record: see `docs/decisions/ADR-006-artifacts-bucket-policy-ownership.md` for why the bucket policy lives in this lab (resource-owned policy) and grants access to both CodePipeline and CodeBuild roles.
+- Decision record: see `docs/decisions/ADR-006-artifacts-bucket-policy-ownership.md` for why the bucket policy lives in this lab (resource-owned policy) and grants access to both CodePipeline and CodeBuild roles.
 
 Ownership & Order (IAM vs CI/CD)
 
@@ -114,12 +114,14 @@ Common Failures and Fixes
 Troubleshooting (Copy/Paste)
 
 - Check artifacts bucket policy grants BOTH roles (CodePipeline + CodeBuild):
+
   ```bash
   aws s3api get-bucket-policy --bucket <your-artifacts-bucket> --query Policy | jq -r .
   # Expect principals for both roles and actions: s3:GetObject, s3:GetObjectVersion, s3:PutObject, s3:GetBucketVersioning
   ```
 
 - Inspect CodePipeline role policy for ECS actions:
+
   ```bash
   aws iam get-role-policy \
     --role-name devops-refresher-codepipeline-role \
@@ -133,7 +135,7 @@ Troubleshooting (Copy/Paste)
   ../scripts/validate-cicd.sh
   ```
 
-  
+  - The validator simulates IAM permissions for ECS actions and `iam:PassRole` against the actual task roles, using both principals (`ecs-tasks.amazonaws.com` and `ecs.amazonaws.com`). If it passes, your deploy stage will have the permissions it needs.
 
 CI vs CD Flow (and what to echo)
 
