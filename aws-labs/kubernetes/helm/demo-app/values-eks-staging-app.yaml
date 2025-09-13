@@ -1,0 +1,55 @@
+image:
+  repository: 139294524816.dkr.ecr.ap-southeast-2.amazonaws.com/demo-node-app
+  tag: staging
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 3000
+
+containerPort: 3000
+
+ingress:
+  enabled: true
+  className: alb
+  host: demo-node-app-eks.aws.deanlofts.xyz
+  # certificateArn: <set from terraform output certificate_arn>
+
+# Prefer pulling env from AWS via External Secrets Operator
+externalSecrets:
+  enabled: true
+  targetSecretName: demo-node-app-env
+  storeRef:
+    kind: ClusterSecretStore
+    name: aws-parameterstore
+  dataFrom:
+    - extract:
+        key: /devops-refresher/staging/app
+# If not using ESO, you can set explicit env below instead (comment out externalSecrets.enabled)
+# env:
+#   - name: APP_ENV
+#     value: staging
+#   - name: LOG_LEVEL
+#     value: info
+#   - name: PORT
+#     value: "3000"
+#   - name: S3_BUCKET
+#     value: devops-refresher-staging-app-65d854
+#   - name: DB_HOST
+#     value: staging-app-postgres.c4msfqd2cnyb.ap-southeast-2.rds.amazonaws.com
+#   - name: DB_PORT
+#     value: "5432"
+#   - name: DB_USER
+#     value: app_user_staging
+#   - name: DB_NAME
+#     value: app_staging
+#   - name: DB_SSL
+#     value: required
+#   - name: REDIS_HOST
+#     value: master.staging-app-redis.hskbd9.apse2.cache.amazonaws.com
+#   - name: REDIS_PORT
+#     value: "6379"
+#   - name: REDIS_TLS
+#     value: "true"
+#   - name: SELF_TEST_ON_BOOT
+#     value: "false"

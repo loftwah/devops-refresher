@@ -1,0 +1,23 @@
+# Example values for EKS staging with ESO
+
+image:
+  repository: public.ecr.aws/docker/library/nginx
+  tag: stable
+
+serviceAccount:
+  create: true
+  annotations: {}
+
+externalSecrets:
+  enabled: true
+  # Use Parameter Store for non-secrets
+  storeRef:
+    kind: ClusterSecretStore
+    name: aws-parameterstore
+  targetSecretName: demo-app-env
+  dataFrom:
+    - extract:
+        key: /devops-refresher/staging/app
+# If you also keep secrets in Secrets Manager, create an additional
+# ExternalSecret manifest pointing to ClusterSecretStore aws-secretsmanager
+# with target.name: demo-app-env and creationPolicy: Merge.
