@@ -173,7 +173,7 @@ Notes:
 - The upstream provider docs commonly use `kubectl apply` with a static manifest. Helm unifies lifecycle and drift management but requires a chart source; either vendor the manifests or use a maintained chart.
 - Regardless of method, the provider service account must have the IRSA role annotation.
 
-- External Secrets Operator (recommended for env vars): see Lab 15 (aws-labs/15-eks-external-secrets.md) for the IRSA role/policy and end-to-end steps. With ESO, the controller reads from AWS and syncs into a Secret; application pods `envFrom` that Secret and typically don’t need AWS permissions.
+- External Secrets Operator (recommended for env vars): see `aws-labs/99-eks-external-secrets.md` for the IRSA role/policy and end-to-end steps. With ESO, the controller reads from AWS and syncs into a Secret; application pods `envFrom` that Secret and typically don’t need AWS permissions.
 
 Verification:
 

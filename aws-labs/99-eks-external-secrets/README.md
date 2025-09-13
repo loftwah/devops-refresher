@@ -1,4 +1,4 @@
-# Lab 15 – EKS External Secrets (IRSA)
+# EKS External Secrets (IRSA)
 
 ## Objective
 
@@ -13,7 +13,7 @@ Create a least‑privilege IRSA role for External Secrets Operator (ESO) to read
 ## Apply
 
 ```bash
-cd aws-labs/15-eks-external-secrets
+cd aws-labs/99-eks-external-secrets
 terraform init
 terraform apply \
   -var region=$AWS_REGION \

@@ -28,6 +28,12 @@ variable "grant_exec_role_secrets_read" {
   default     = true
 }
 
+variable "connection_arn" {
+  description = "AWS CodeConnections (CodeStar Connections) ARN for GitHub source (for CodePipeline role)"
+  type        = string
+  default     = "arn:aws:codeconnections:ap-southeast-2:139294524816:connection/9cb5e242-3d9c-4b3c-8fec-fd3fdea9e37e"
+}
+
 variable "secrets_path_prefix" {
   description = "Secrets Manager name prefix, e.g. /devops-refresher/staging/app"
   type        = string
@@ -39,4 +45,3 @@ variable "kms_key_arn" {
   type        = string
   default     = ""
 }
-

@@ -149,3 +149,109 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_ssm_managed_core" {
 output "execution_role_arn" { value = aws_iam_role.ecs_execution.arn }
 output "task_role_arn" { value = aws_iam_role.task.arn }
 output "task_role_name" { value = aws_iam_role.task.name }
+
+# --- CI/CD Roles ---
+
+data "aws_iam_policy_document" "codebuild_trust" {
+  statement {
+    effect = "Allow"
+    principals {
+      type        = "Service"
+      identifiers = ["codebuild.amazonaws.com"]
+    }
+    actions = ["sts:AssumeRole"]
+  }
+}
+
+resource "aws_iam_role" "codebuild" {
+  name               = "devops-refresher-codebuild-role"
+  assume_role_policy = data.aws_iam_policy_document.codebuild_trust.json
+}
+
+data "aws_iam_policy_document" "codebuild_policy" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "logs:CreateLogGroup",
+      "logs:CreateLogStream",
+      "logs:PutLogEvents"
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    effect = "Allow"
+    actions = [
+      "ecr:GetAuthorizationToken",
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:CompleteLayerUpload",
+      "ecr:UploadLayerPart",
+      "ecr:InitiateLayerUpload",
+      "ecr:PutImage",
+      "ecr:BatchGetImage",
+      "ecr:DescribeRepositories"
+    ]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "codebuild_inline" {
+  name   = "devops-refresher-codebuild"
+  role   = aws_iam_role.codebuild.id
+  policy = data.aws_iam_policy_document.codebuild_policy.json
+}
+
+data "aws_iam_policy_document" "codepipeline_trust" {
+  statement {
+    effect = "Allow"
+    principals {
+      type        = "Service"
+      identifiers = ["codepipeline.amazonaws.com"]
+    }
+    actions = ["sts:AssumeRole"]
+  }
+}
+
+resource "aws_iam_role" "codepipeline" {
+  name               = "devops-refresher-codepipeline-role"
+  assume_role_policy = data.aws_iam_policy_document.codepipeline_trust.json
+}
+
+data "aws_iam_policy_document" "codepipeline_policy" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "codebuild:BatchGetBuilds",
+      "codebuild:StartBuild"
+    ]
+    # Allow any CodeBuild project in this account/region
+    resources = ["arn:aws:codebuild:${var.region}:${data.aws_caller_identity.current.account_id}:project/*"]
+  }
+
+  statement {
+    effect    = "Allow"
+    actions   = ["codestar-connections:UseConnection"]
+    resources = [var.connection_arn]
+  }
+
+  statement {
+    effect = "Allow"
+    actions = [
+      "ecs:DescribeServices",
+      "ecs:DescribeTaskDefinition",
+      "ecs:RegisterTaskDefinition",
+      "ecs:UpdateService",
+      "iam:PassRole"
+    ]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "codepipeline_inline" {
+  name   = "devops-refresher-codepipeline"
+  role   = aws_iam_role.codepipeline.id
+  policy = data.aws_iam_policy_document.codepipeline_policy.json
+}
+
+output "codebuild_role_arn" { value = aws_iam_role.codebuild.arn }
+output "codepipeline_role_arn" { value = aws_iam_role.codepipeline.arn }

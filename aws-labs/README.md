@@ -18,6 +18,7 @@ Suggested order (high-level):
 - 12 – ALB (listener/target-group)
 - 13 – ECS Cluster (shared)
 - 14 – ECS Service (app)
+- 15 – CI/CD: CodePipeline to ECS
 
 ## Backend and State
 

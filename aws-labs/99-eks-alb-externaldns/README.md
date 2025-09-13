@@ -1,4 +1,4 @@
-# Lab 16 – EKS ALB + ExternalDNS (IRSA + ACM)
+# EKS ALB + ExternalDNS (IRSA + ACM)
 
 ## Objectives
 
@@ -25,7 +25,7 @@ This module creates:
 Apply:
 
 ```bash
-cd aws-labs/16-eks-alb-externaldns
+cd aws-labs/99-eks-alb-externaldns
 terraform init
 terraform apply \
   -var oidc_provider_arn=arn:aws:iam::<account-id>:oidc-provider/oidc.eks.<region>.amazonaws.com/id/<id> \
