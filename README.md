@@ -12,8 +12,8 @@ Architecture Decisions
 ## Repo Conventions
 
 - Kubernetes assets live under `kubernetes/`:
-  - `kubernetes/helm/` for Helm values and helpers
-  - `kubernetes/manifests/` for raw manifests
+- `aws-labs/kubernetes/helm/` for Helm values and helpers
+- `aws-labs/kubernetes/manifests/` for raw manifests
   - `kubernetes/policies/` for IAM policies used by controllers
 - YAML extension: use `.yml` across the repo for consistency, except where upstream tools require specific names:
   - Helm chart files must be `Chart.yaml` and commonly `values.yaml` as the default values file.

@@ -28,6 +28,13 @@
 
 Note: S3 access to the pipeline artifacts bucket is granted via a bucket policy in Lab 15 to avoid coupling this lab to bucket naming.
 
+### EKS CI/CD (for Lab 21)
+
+- CodeBuild role now also includes:
+  - `eks:DescribeCluster` to generate kubeconfig in deploy builds
+  - `ecr:DescribeImages` to wait for the built image tag before Helm deploy
+- Cluster access (RBAC) is separate from IAM permissions. Map the CodeBuild role into your cluster’s `aws-auth` ConfigMap (staging shortcut: `system:masters`). See `aws-labs/21-cicd-eks-pipeline/README.md` for a snippet.
+
 ### Migration Note: Adopting Existing CI/CD Roles
 
 If the CI/CD roles were created elsewhere (e.g., in Lab 15 before this lab owned them), Terraform will fail here with `EntityAlreadyExists` when trying to create the same role names. Adopt the existing roles into this lab’s state using `terraform import` and then apply.
