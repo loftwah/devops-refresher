@@ -41,4 +41,3 @@ References
 
 - Bucket policy implementation: `aws-labs/15-cicd-ecs-pipeline/main.tf:125`
 - CI/CD roles definition: `aws-labs/06-iam/main.tf:166` (CodeBuild), `aws-labs/06-iam/main.tf:215` (CodePipeline)
-

@@ -131,6 +131,7 @@ Troubleshooting (Copy/Paste)
   ```
 
 - One-shot validation (recommended):
+
   ```bash
   ../scripts/validate-cicd.sh
   ```

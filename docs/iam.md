@@ -162,6 +162,7 @@ Example: read-only access to an S3 bucket:
 ## CI/CD → ECS permissions
 
 See the runbook for diagnosing and unblocking ECS Deploy permissions:
+
 - `docs/runbooks/cicd-ecs-permissions.md`
 
 ---
