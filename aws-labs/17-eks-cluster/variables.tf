@@ -19,7 +19,7 @@ variable "cluster_name" {
 variable "kubernetes_version" {
   description = "EKS version"
   type        = string
-  default     = "1.29"
+  default     = "1.31"
 }
 
 variable "desired_size" {
@@ -62,5 +62,5 @@ variable "oidc_thumbprint" {
   description = "Thumbprint for the EKS OIDC provider root CA"
   type        = string
   # Default commonly used for oidc.eks.<region>.amazonaws.com as of 2024
-  default     = "9e99a48a9960b14926bb7f3b02e22da0ecd4e4b5"
+  default = "9e99a48a9960b14926bb7f3b02e22da0ecd4e4b5"
 }

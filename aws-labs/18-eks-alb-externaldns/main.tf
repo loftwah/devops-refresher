@@ -3,8 +3,23 @@ data "aws_route53_zone" "this" {
   private_zone = false
 }
 
+data "terraform_remote_state" "eks" {
+  backend = "s3"
+  config = {
+    bucket  = "tf-state-139294524816-us-east-1"
+    key     = "staging/eks-cluster/terraform.tfstate"
+    region  = "us-east-1"
+    profile = "devops-sandbox"
+  }
+}
+
+locals {
+  # Prefer explicit input, otherwise pull from lab 17 state
+  oidc_provider_arn = coalesce(var.oidc_provider_arn, data.terraform_remote_state.eks.outputs.oidc_provider_arn)
+}
+
 data "aws_iam_openid_connect_provider" "eks" {
-  arn = var.oidc_provider_arn
+  arn = local.oidc_provider_arn
 }
 
 # ACM certificate for EKS domain
@@ -40,11 +55,11 @@ locals {
 # IRSA role for AWS Load Balancer Controller
 data "aws_iam_policy_document" "lbc_trust" {
   statement {
-    effect = "Allow"
+    effect  = "Allow"
     actions = ["sts:AssumeRoleWithWebIdentity"]
     principals {
       type        = "Federated"
-      identifiers = [var.oidc_provider_arn]
+      identifiers = [local.oidc_provider_arn]
     }
     condition {
       test     = "StringEquals"
@@ -68,7 +83,7 @@ resource "aws_iam_role" "lbc" {
 # Source reference: https://github.com/kubernetes-sigs/aws-load-balancer-controller/blob/main/docs/install/iam_policy.json
 resource "aws_iam_policy" "lbc" {
   name   = "devops-refresher-staging-eks-lbc"
-  policy = <<'POLICY'
+  policy = <<POLICY
 {
   "Version": "2012-10-17",
   "Statement": [
@@ -97,11 +112,22 @@ resource "aws_iam_role_policy_attachment" "lbc_attach" {
 # IRSA role for ExternalDNS, limited to the hosted zone
 data "aws_iam_policy_document" "externaldns_trust" {
   statement {
-    effect = "Allow"
+    effect  = "Allow"
     actions = ["sts:AssumeRoleWithWebIdentity"]
-    principals { type = "Federated" identifiers = [var.oidc_provider_arn] }
-    condition { test = "StringEquals" variable = "${local.oidc_url_host}:sub" values = ["system:serviceaccount:${var.externaldns_namespace}:${var.externaldns_service_account}"] }
-    condition { test = "StringEquals" variable = "${local.oidc_url_host}:aud" values = ["sts.amazonaws.com"] }
+    principals {
+      type        = "Federated"
+      identifiers = [local.oidc_provider_arn]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "${local.oidc_url_host}:sub"
+      values   = ["system:serviceaccount:${var.externaldns_namespace}:${var.externaldns_service_account}"]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "${local.oidc_url_host}:aud"
+      values   = ["sts.amazonaws.com"]
+    }
   }
 }
 

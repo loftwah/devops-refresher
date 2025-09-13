@@ -47,3 +47,26 @@ helm upgrade --install external-dns bitnami/external-dns \
 Outputs:
 
 - `certificate_arn`, `lbc_role_arn`, `externaldns_role_arn`
+
+## Validation
+
+Run: `aws-labs/scripts/validate-eks-alb-externaldns.sh`
+
+## Maintenance & Upgrades
+
+- AWS Load Balancer Controller:
+  - Check current version: `kubectl -n kube-system get deploy aws-load-balancer-controller -o jsonpath='{.spec.template.spec.containers[0].image}'`
+  - Upgrade via Helm (use the same SA + IRSA):
+    ```
+    helm repo add eks https://aws.github.io/eks-charts && helm repo update
+    helm upgrade aws-load-balancer-controller eks/aws-load-balancer-controller \
+      -n kube-system \
+      --set clusterName=$(cd ../17-eks-cluster && terraform output -raw cluster_name) \
+      --set serviceAccount.create=false \
+      --set serviceAccount.name=aws-load-balancer-controller
+    ```
+  - Verify: `kubectl -n kube-system rollout status deploy/aws-load-balancer-controller`
+- ExternalDNS:
+  - Upgrade similarly from the Bitnami repo, keeping the existing ServiceAccount name and IRSA annotation.
+  - Verify: `kubectl -n external-dns rollout status deploy/external-dns`
+- After EKS minor upgrades, upgrade these controllers to a compatible version per their release notes.

@@ -24,15 +24,20 @@ This module creates:
 
 Apply:
 
+This lab auto-discovers the cluster OIDC provider ARN from Lab 17's remote state.
+
 ```bash
 cd aws-labs/18-eks-alb-externaldns
 terraform init
-terraform apply \
-  -var oidc_provider_arn=arn:aws:iam::<account-id>:oidc-provider/oidc.eks.<region>.amazonaws.com/id/<id> \
-  -var hosted_zone_name=aws.deanlofts.xyz \
-  -var eks_domain_fqdn=demo-node-app-eks.aws.deanlofts.xyz \
-  -auto-approve
+terraform apply -auto-approve
 ```
+
+Notes:
+
+- Override any defaults if needed:
+  - `-var hosted_zone_name=aws.deanlofts.xyz`
+  - `-var eks_domain_fqdn=demo-node-app-eks.aws.deanlofts.xyz`
+  - `-var oidc_provider_arn=...` (only if you want to bypass remote state lookup)
 
 Outputs:
 
@@ -116,6 +121,16 @@ spec:
 ```
 
 ## Validation
+
+### Automated
+
+Run the lab validator to ensure IAM roles exist and the ACM certificate is ISSUED:
+
+```bash
+bash aws-labs/scripts/validate-eks-alb-externaldns.sh
+```
+
+### Manual (optional, after you install controllers and an Ingress)
 
 - `kubectl get ingress -A` – Ingress shows an address (ALB DNS).
 - `dig +short demo-node-app-eks.aws.deanlofts.xyz` resolves to the ALB.

@@ -11,8 +11,9 @@ variable "eks_domain_fqdn" {
 }
 
 variable "oidc_provider_arn" {
-  description = "EKS cluster OIDC provider ARN (for IRSA)"
+  description = "EKS cluster OIDC provider ARN (for IRSA). Optional: will be read from lab 17 remote state if not set."
   type        = string
+  default     = null
 }
 
 variable "lbc_namespace" {

@@ -20,10 +20,60 @@ Suggested order (high-level):
 - 14 – ECS Service (app)
 - 15 – CI/CD: CodePipeline to ECS
 - 16 – Observability (CloudWatch logs, metrics, alarms, dashboard)
+- 17 – EKS Cluster (cluster, node group, OIDC, subnet tags)
+- 18 – EKS ALB + ExternalDNS (IRSA roles + ACM)
+- 19 – EKS External Secrets (IRSA + SecretStores)
+- 20 – EKS App (Helm deploy with ESO + ALB)
+- 21 – CI/CD for EKS (CodePipeline + CodeBuild Helm deploy)
 
 ## Backend and State
 
 - All labs use a shared S3 backend for Terraform state with lockfile-based locking. Do not skip the backend during normal usage. See `aws-labs/00-backend.md` for guidance, troubleshooting, and why remote state is mandatory here.
+- Regional model: Terraform state bucket is in `us-east-1`, while infrastructure (EKS/ECS/ALB/RDS/Redis/etc.) runs in `ap-southeast-2`.
+
+## Kubernetes Assets
+
+- All Kubernetes Helm values and manifests live under `aws-labs/kubernetes/`.
+  - `aws-labs/kubernetes/helm/` – values files and demo-app chart.
+  - `aws-labs/kubernetes/manifests/` – cluster-wide manifests (e.g., ClusterSecretStores, CSI patches).
+
+## Validation
+
+- Orchestrator: `aws-labs/scripts/validate-labs.sh` runs all available validators.
+- Notable validators (can be run standalone):
+  - `aws-labs/scripts/validate-eks-cluster.sh` – cluster ACTIVE, nodegroup ACTIVE, OIDC present, subnet tags.
+  - `aws-labs/scripts/validate-eks-alb-externaldns.sh` – IRSA roles exist, ACM cert ISSUED.
+  - `aws-labs/scripts/validate-eks-external-secrets.sh` – ESO role exists, SA annotation, SecretStores present.
+  - `aws-labs/scripts/validate-eks-app.sh` – Deployment/Service/Ingress/ExternalSecret and HTTPS health.
+
+## Optional/Extras
+
+- CloudFront: `aws-labs/99-cloudfront.md`
+- Fault labs: `aws-labs/99-fault-labs.md`
+
+As of now, the core AWS lab flow ends at 20 (EKS App). If we add more, we will continue numbering sequentially. Note: Lab 21 adds a separate EKS pipeline to preserve ordering; both pipelines trigger from the same repo/branch.
+
+## VPC Endpoints – Why Optional (but Recommended)?
+
+- Without endpoints, workloads in private subnets can still reach AWS APIs (S3, ECR, SSM, etc.) via the NAT gateway and public Internet. Functionally, things work.
+- We add endpoints to keep traffic on the AWS network, reduce NAT egress costs, enable stricter policies (e.g., `aws:sourceVpce`, Private DNS), and improve resilience when Internet egress is constrained.
+- Lab 02 treats a minimal set (S3 Gateway, SSM/Exec, ECR, CloudWatch Logs) as part of the “staging baseline”, while others remain opt‑in.
+
+## Maintenance
+
+- Versions:
+  - EKS: Prefer latest GA minor (>= 1.30). Set via `-var kubernetes_version` in `17-eks-cluster` and upgrade add‑ons/controllers afterward.
+  - Controllers: Keep AWS Load Balancer Controller, ExternalDNS, and External Secrets Operator current via Helm.
+  - App chart: Use immutable image tags and roll out via `helm upgrade`.
+- Rotation:
+  - Secrets (DB_PASS, APP_AUTH_SECRET): rotate in Secrets Manager; ESO syncs to K8s Secret on next refresh (`refreshInterval`, default 1h). Force re‑sync by editing the ExternalSecret or deleting the target Secret.
+  - Parameters: update SSM; ESO will refresh; ECS tasks pick up on redeploy.
+- Certificates:
+  - ACM auto‑renews DNS‑validated certs as long as Route 53 records remain. ExternalDNS maintains records from Ingress.
+- Cost & scaling:
+  - Use VPC Endpoints to reduce NAT egress. Right‑size node groups; scale via `desired_size`/HPA as needed.
+- Validation cadence:
+  - Run `aws-labs/scripts/validate-labs.sh` after significant changes and on a schedule to catch drift or expiring resources.
 
 ## Secrets vs Parameters
 

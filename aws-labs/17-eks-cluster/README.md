@@ -9,6 +9,7 @@ Provision an EKS cluster and managed node group in the existing VPC private subn
 - IAM roles for the EKS control plane and node group (with recommended managed policies).
 - `aws_eks_cluster` with API endpoint public+private, using both public and private subnets for control plane ENIs.
 - `aws_eks_node_group` in private subnets.
+- Core managed add‑ons installed via Terraform: `vpc-cni`, `coredns`, `kube-proxy` (kept at latest compatible version).
 - Subnet tags:
   - Public: `kubernetes.io/role/elb=1` and `kubernetes.io/cluster/<name>=shared`
   - Private: `kubernetes.io/cluster/<name>=shared`
@@ -52,3 +53,9 @@ Notes:
 
 - If OIDC thumbprint differs in your region/account, override `-var oidc_thumbprint=...`.
 - Subnet tags can take a minute to propagate; controller discovery relies on them.
+
+## Versioning Policy
+
+- Default cluster version is `1.31` to avoid falling into extended support windows for older versions.
+- To pin or upgrade, set `-var kubernetes_version=<x.y>` and apply. Recommended: stay on the latest generally available minor (>= 1.30).
+- After a minor upgrade, review/add-on compatibility (VPC CNI, CoreDNS, kube-proxy) and controller versions (AWS Load Balancer Controller, ExternalDNS, ESO) and upgrade them as needed.

@@ -31,5 +31,20 @@ kubectl -n external-secrets annotate sa external-secrets \
 
 ```
 kubectl apply -f aws-labs/kubernetes/manifests/externalsecrets-clustersecretstore-parameterstore.yml
-kubectl apply -f aws-labs/kubernetes/manifests/externalsecrets-clustersecretstore-secretsmanager.yml
+ kubectl apply -f aws-labs/kubernetes/manifests/externalsecrets-clustersecretstore-secretsmanager.yml
 ```
+
+## Validation
+
+Run: `aws-labs/scripts/validate-eks-external-secrets.sh`
+
+## Maintenance & Upgrades
+
+- External Secrets Operator:
+  - If installed via Helm, upgrade the chart to pick up fixes and provider updates.
+  - Ensure the ESO controller ServiceAccount remains annotated with the IRSA role created by this lab.
+  - Post‑upgrade, verify existing `ExternalSecret` resources are syncing (`kubectl get externalsecret -A`).
+- IRSA policy scope:
+  - This lab scopes SSM and Secrets Manager access to `/devops-refresher/<env>/<service>`. If paths change, update the Terraform and re‑apply; ESO will continue syncing.
+- Rotation:
+  - After rotating secrets in Secrets Manager, ESO will refresh the target Secret on the next cycle (default 1h). Force a re‑sync by deleting the synced Secret or toggling the ExternalSecret.

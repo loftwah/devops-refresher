@@ -28,3 +28,18 @@ helm upgrade --install demo aws-labs/kubernetes/helm/demo-app \
 Notes:
 
 - Security Groups for Pods: apply `aws-labs/kubernetes/manifests/sgp-app.yml` once you replace the placeholder SG ID with the `app_sg_id` output from Lab 07.
+
+## Validation
+
+Run: `aws-labs/scripts/validate-eks-app.sh`
+
+## Operations & Maintenance
+
+- Deployments:
+  - Promote a new image by updating the tag in values or with `--set image.tag=<sha>` and `helm upgrade`.
+  - Rollback: `helm -n demo rollback demo <revision>`; view history with `helm -n demo history demo`.
+- Configuration:
+  - Non‑secrets from SSM and secrets from Secrets Manager are synced by ESO; the pod consumes a single K8s Secret via `envFrom`.
+  - Update SSM/Secrets values and let ESO sync (or force re‑sync); then restart the Deployment if the app only reads env at startup.
+- Ingress & TLS:
+  - ACM cert is DNS‑validated and auto‑renews. Keep the Ingress host and Route 53 zone stable; ExternalDNS maintains records from the Ingress.
