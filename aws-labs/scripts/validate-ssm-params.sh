@@ -6,7 +6,7 @@ set -Eeuo pipefail
 # - Optionally checks DB_PASS secret exists
 
 ROOT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")"/.. && pwd)
-SSM_DIR="$ROOT_DIR/aws-labs/11-parameter-store"
+SSM_DIR="$ROOT_DIR/11-parameter-store"
 
 # Basic colored output (respects NO_COLOR and non-TTY)
 if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
@@ -19,8 +19,8 @@ ok()   { printf "${C_OK}[ OK ]${C_RESET} %s\n" "$*"; }
 err()  { printf "${C_FAIL}[FAIL]${C_RESET} %s\n" "$*"; }
 require() { command -v "$1" >/dev/null 2>&1 || { err "Required command '$1' not found"; exit 1; }; }
 
-AWS_PROFILE_EFFECTIVE="${AWS_PROFILE:-}"
-AWS_REGION_EFFECTIVE="${AWS_REGION:-${AWS_DEFAULT_REGION:-}}"
+PROFILE="devops-sandbox"
+REGION="ap-southeast-2"
 ENV_NAME="staging"
 SERVICE_NAME="app"
 
@@ -33,15 +33,13 @@ REQUIRED_KEYS=(
 parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      -p|--profile) AWS_PROFILE_EFFECTIVE="$2"; shift 2 ;;
-      -r|--region)  AWS_REGION_EFFECTIVE="$2";  shift 2 ;;
+      # Profile/region are enforced by this lab; flags intentionally not supported
       -e|--env)     ENV_NAME="$2";              shift 2 ;;
       -s|--service) SERVICE_NAME="$2";          shift 2 ;;
       -h|--help)
         cat <<EOF
 Usage: $(basename "$0") [options]
-  -p, --profile NAME   AWS profile
-  -r, --region  NAME   AWS region
+  (Profile/region are enforced by this lab: devops-sandbox / ap-southeast-2)
   -e, --env     NAME   Environment (default: $ENV_NAME)
   -s, --service NAME   Service (default: $SERVICE_NAME)
 EOF
@@ -52,19 +50,11 @@ EOF
 }
 
 aws_cli() {
-  local region_flag=( ) profile_flag=( )
-  [[ -n "${AWS_REGION_EFFECTIVE:-}" ]] && region_flag=(--region "$AWS_REGION_EFFECTIVE")
-  [[ -n "${AWS_PROFILE_EFFECTIVE:-}" ]] && profile_flag=(--profile "$AWS_PROFILE_EFFECTIVE")
-  aws "${profile_flag[@]}" "${region_flag[@]}" "$@"
+  aws --profile "$PROFILE" --region "$REGION" "$@"
 }
 
 discover_defaults() {
-  if [[ -z "${AWS_PROFILE_EFFECTIVE:-}" && -f "$SSM_DIR/providers.tf" ]]; then
-    AWS_PROFILE_EFFECTIVE=$(awk '/variable "aws_profile"/,/}/ { if ($1=="default") { gsub(/"/, "", $3); print $3 } }' "$SSM_DIR/providers.tf" || true)
-  fi
-  if [[ -z "${AWS_REGION_EFFECTIVE:-}" && -f "$SSM_DIR/providers.tf" ]]; then
-    AWS_REGION_EFFECTIVE=$(awk '/variable "region"/,/}/ { if ($1=="default") { gsub(/"/, "", $3); print $3 } }' "$SSM_DIR/providers.tf" || true)
-  fi
+  # Profile/region are enforced; no discovery
   # Try to infer env/service from Terraform output ssm_path_prefix
   if command -v terraform >/dev/null 2>&1; then
     if terraform -chdir="$SSM_DIR" init -input=false >/dev/null 2>&1; then
@@ -78,8 +68,8 @@ discover_defaults() {
       fi
     fi
   fi
-  [[ -n "$AWS_PROFILE_EFFECTIVE" ]] && info "Using AWS profile: $AWS_PROFILE_EFFECTIVE"
-  [[ -n "$AWS_REGION_EFFECTIVE"  ]] && info "Using AWS region:  $AWS_REGION_EFFECTIVE"
+  info "Using AWS profile: $PROFILE"
+  info "Using AWS region:  $REGION"
   info "Using prefix /devops-refresher/${ENV_NAME}/${SERVICE_NAME}"
 }
 

@@ -21,8 +21,11 @@ enabled=$(aws_cli ecs describe-services --cluster "$CLUSTER" --services "$SERVIC
 if [[ "$enabled" != "True" ]]; then err "ECS Exec not enabled on service $SERVICE"; fail=1; else ok "ECS Exec enabled on service"; fi
 
 # 2) Roles have AmazonSSMManagedInstanceCore
-exec_role=$(terraform -chdir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")"/../aws-labs/06-iam && pwd)" output -raw execution_role_arn 2>/dev/null || echo "")
-task_role=$(terraform -chdir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")"/../aws-labs/06-iam && pwd)" output -raw task_role_arn 2>/dev/null || echo "")
+LABS_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")"/.. && pwd)
+IAM_DIR="$LABS_DIR/06-iam"
+VPC_DIR="$LABS_DIR/01-vpc"
+exec_role=$(terraform -chdir="$IAM_DIR" output -raw execution_role_arn 2>/dev/null || echo "")
+task_role=$(terraform -chdir="$IAM_DIR" output -raw task_role_arn 2>/dev/null || echo "")
 
 check_policy_attached() {
   local role_arn="$1"; local name; name=$(basename "$role_arn")
@@ -36,9 +39,8 @@ check_policy_attached "$exec_role"
 check_policy_attached "$task_role"
 
 # 3) VPC endpoints (SSM trio) exist (structure-only check)
-vpc_id=$(aws_cli ecs describe-clusters --clusters "$CLUSTER" --query 'clusters[0].clusterArn' --output text >/dev/null 2>&1 || true)
-# Fallback: read from Lab 01 state
-if ! vpc_id=$(terraform -chdir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")"/../aws-labs/01-vpc && pwd)" output -raw vpc_id 2>/dev/null); then
+# Read from Lab 01 state
+if ! vpc_id=$(terraform -chdir="$VPC_DIR" output -raw vpc_id 2>/dev/null); then
   err "Could not determine VPC ID from Lab 01 outputs"; fail=1
 else
   for svc in ssm ssmmessages ec2messages; do
@@ -50,5 +52,4 @@ else
 fi
 
 if [[ "$fail" -eq 0 ]]; then ok "ECS Exec validation passed"; else err "ECS Exec validation failed"; exit 1; fi
-
 

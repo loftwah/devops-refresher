@@ -16,6 +16,101 @@
 - ECS Exec support: attach `AmazonSSMManagedInstanceCore` to BOTH roles to enable SSM channels for `ecs exec`.
 - Outputs: `execution_role_arn`, `task_role_arn`, `task_role_name`.
 
+## CI/CD Roles (for Lab 15)
+
+- CodeBuild role: `aws_iam_role.codebuild` with inline policy for logs and ECR push.
+- CodePipeline role: `aws_iam_role.codepipeline` with inline policy:
+  - `codestar-connections:UseConnection` on your GitHub connection ARN.
+  - `codebuild:StartBuild`/`BatchGetBuilds` on CodeBuild projects in this account.
+  - ECS deploy permissions (`ecs:RegisterTaskDefinition`, `ecs:UpdateService`, etc.) and `iam:PassRole`.
+- Outputs:
+  - `codebuild_role_arn`, `codepipeline_role_arn` (consumed by `aws-labs/15-cicd-ecs-pipeline`).
+
+Note: S3 access to the pipeline artifacts bucket is granted via a bucket policy in Lab 15 to avoid coupling this lab to bucket naming.
+
+### Migration Note: Adopting Existing CI/CD Roles
+
+If the CI/CD roles were created elsewhere (e.g., in Lab 15 before this lab owned them), Terraform will fail here with `EntityAlreadyExists` when trying to create the same role names. Adopt the existing roles into this lab’s state using `terraform import` and then apply.
+
+Symptoms:
+
+- `EntityAlreadyExists: Role with name devops-refresher-codebuild-role already exists` (or the CodePipeline role)
+- Lab 15 shows `Unsupported attribute` for `codebuild_role_arn` / `codepipeline_role_arn` when this lab hasn’t been applied yet.
+
+Fix (copy/paste from aws-labs/06-iam):
+
+```bash
+terraform init
+terraform import aws_iam_role.codebuild devops-refresher-codebuild-role
+terraform import aws_iam_role_policy.codebuild_inline devops-refresher-codebuild-role:devops-refresher-codebuild
+terraform import aws_iam_role.codepipeline devops-refresher-codepipeline-role
+terraform import aws_iam_role_policy.codepipeline_inline devops-refresher-codepipeline-role:devops-refresher-codepipeline
+terraform validate && terraform apply -auto-approve
+```
+
+Why this happens and how to avoid it:
+
+- Decide IAM ownership up front. In these labs, Lab 06 owns CI/CD IAM; Lab 15 consumes ARNs via remote state. Apply Lab 06 before Lab 15.
+- If you must prototype in Lab 15 first, import the created roles here before switching ownership.
+
+## Permissions Checklist (Don’t Get Surprised)
+
+- CodePipeline role (source/build/deploy):
+  - `codestar-connections:UseConnection`: on the GitHub CodeConnections ARN used by the Source stage.
+  - `codebuild:StartBuild`, `codebuild:BatchGetBuilds`: on the CodeBuild project(s) this pipeline triggers.
+  - ECS permissions for deploy: `ecs:ListClusters`, `ecs:DescribeClusters`, `ecs:ListServices`, `ecs:DescribeServices`, `ecs:DescribeTaskDefinition`, `ecs:ListTaskDefinitions`, `ecs:DescribeTasks`, `ecs:DescribeTaskSets`, `ecs:RegisterTaskDefinition`, `ecs:UpdateService`.
+  - `iam:PassRole`: for the ECS task execution/runtime roles that the service uses. Condition now includes both `ecs-tasks.amazonaws.com` and `ecs.amazonaws.com` to cover provider nuances.
+  - S3 artifacts access: provided via the bucket policy in Lab 15 (not here) — requires `s3:GetObject`, `s3:GetObjectVersion`, `s3:PutObject`, and `s3:GetBucketVersioning` on the artifacts bucket and prefix.
+
+- CodeBuild role (build image + push to ECR):
+  - CloudWatch Logs: `logs:CreateLogGroup`, `logs:CreateLogStream`, `logs:PutLogEvents`.
+  - ECR push/pull: `ecr:GetAuthorizationToken`, `ecr:BatchCheckLayerAvailability`, `ecr:InitiateLayerUpload`, `ecr:UploadLayerPart`, `ecr:CompleteLayerUpload`, `ecr:PutImage`, `ecr:BatchGetImage`, `ecr:DescribeRepositories`.
+  - S3 artifacts via bucket policy in Lab 15: `s3:GetObject`, `s3:GetObjectVersion` (download input from CodePipeline), and `s3:PutObject` when applicable.
+  - Optional (only if build needs them): `ssm:GetParameter(s)`/`GetParametersByPath` for build-time parameters; KMS `Decrypt` if reading SecureStrings; Secrets Manager `GetSecretValue` if using BuildKit `--secret` sourced from env.
+
+- S3 artifacts bucket policy (Lab 15):
+  - Grants BOTH CodePipeline and CodeBuild roles access to `s3:GetObject`, `s3:GetObjectVersion`, `s3:PutObject` on the bucket and prefix.
+  - Grants `s3:GetBucketVersioning` on the bucket to both roles.
+
+## Troubleshooting (Quick Checks)
+
+- DOWNLOAD_SOURCE AccessDenied in CodeBuild:
+  - Verify the artifacts bucket policy includes BOTH principals (CodePipeline and CodeBuild roles) with `s3:GetObject`/`GetObjectVersion`/`PutObject` and `s3:GetBucketVersioning`.
+  - File to check: `aws-labs/15-cicd-ecs-pipeline/main.tf` → `aws_s3_bucket_policy.artifacts_access`.
+
+- ECS Deploy stage says role lacks ECS permissions:
+  - Inspect the CodePipeline role inline policy and confirm actions include `ecs:DescribeClusters`, `ecs:DescribeServices`, `ecs:DescribeTaskDefinition`, `ecs:RegisterTaskDefinition`, `ecs:UpdateService` (plus `DescribeTaskSets`, `ListTaskDefinitions`).
+  - Command:
+    ```bash
+    aws iam get-role-policy \
+      --role-name devops-refresher-codepipeline-role \
+      --policy-name devops-refresher-codepipeline \
+      --query 'PolicyDocument.Statement[].Action'
+    ```
+  - If missing, apply this lab and re-run pipeline.
+
+Automation
+
+- Run the end-to-end CI/CD validation script to perform these checks automatically:
+  ```bash
+  aws-labs/scripts/validate-cicd.sh
+  ```
+- The validator now uses IAM policy simulation to verify ECS actions and PassRole against the actual task roles with both principals (`ecs-tasks.amazonaws.com` and `ecs.amazonaws.com`). This prevents false negatives from URL-encoded policy parsing and catches missing permissions before deploy.
+
+- Region alignment:
+  - CodeConnections ARN region and CodePipeline region must match (here: `ap-southeast-2`).
+  - ECR/ECS resources for this pipeline should be in the same region for simplicity.
+
+- Where defined in this repo:
+  - CodePipeline/CodeBuild roles + inline policies: `aws-labs/06-iam/main.tf:166` and `:215` (search for `codebuild` / `codepipeline`).
+  - S3 bucket policy for pipeline artifacts: `aws-labs/15-cicd-ecs-pipeline/main.tf` (search for `aws_s3_bucket_policy.artifacts_access`).
+  - Source connection ARN default: `aws-labs/06-iam/variables.tf:13` (`connection_arn`).
+
+- Quick verification commands:
+  - Inspect pipeline role inline policy: `aws iam get-role-policy --role-name devops-refresher-codepipeline-role --policy-name devops-refresher-codepipeline`.
+  - Confirm UseConnection present and ARN matches: `grep -i UseConnection` output; check `Resource` equals your connection ARN.
+  - Check CodeBuild can push: run a pipeline build and ensure it pushes both `:staging` and `:<git-sha>` to ECR without AccessDenied.
+
 Key implementation details:
 
 - Remote state is used to auto‑discover the S3 bucket from Lab 08 when `var.s3_bucket_name` is unset, so you don’t need to pass flags.
@@ -70,6 +165,18 @@ aws secretsmanager get-secret-value \
   --profile devops-sandbox --region ap-southeast-2 \
   --secret-id /devops-refresher/staging/app/DB_PASS | jq .
 ```
+
+## Root Cause & Prevention
+
+- What happened: The CodePipeline Deploy action failed with "The provided role does not have sufficient permissions to access ECS" due to PassRole/ECS permission evaluation mismatches. Our previous validator relied on grepping decoded inline policy text and could misreport when the AWS API returned URL-encoded JSON; additionally, PassRole conditions limited to only `ecs-tasks.amazonaws.com` can fail in certain ECS provider flows.
+- Fix implemented:
+  - Updated `aws-labs/06-iam/main.tf` to allow `iam:PassRole` with `iam:PassedToService` set to either `ecs-tasks.amazonaws.com` or `ecs.amazonaws.com`.
+  - Hardened `aws-labs/scripts/validate-cicd.sh` to use `iam simulate-principal-policy` for ECS actions and PassRole against the real task/execution roles. This catches issues pre-deploy.
+  - Kept least privilege: minimal ECS actions plus scoped PassRole; removed temporary `ecs:*` after verification.
+- How to avoid regressions:
+  - Always run `aws-labs/scripts/validate-cicd.sh` before triggering a release.
+  - Apply Lab 06 (IAM) before Lab 15 (CI/CD). If IAM roles exist already, import them into Lab 06.
+  - Ensure pipeline region and CodeConnections ARN are `ap-southeast-2`.
 
 ## Cleanup
 

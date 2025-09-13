@@ -29,6 +29,15 @@ Terraform for this lab lives in `aws-labs/03-ecr/` and uses backend state key `s
 - `aws ecr describe-images` shows the `:staging` tag and a recent SHA-tag.
 - Repository has on-push scanning and a lifecycle policy attached.
 
+Screenshots
+
+- ![ECR private repositories](../images/ecr-private-repos.png)
+  ECR private repositories list showing demo repo.
+- ![Repository images](../images/ecr-images.png)
+  Image tags `:staging` and immutable SHA.
+- ![Image details](../images/ecr-image.png)
+  Image metadata, scanning status, and digest.
+
 ## Notes on Base Images and Mirrors
 
 - Prefer using ECR Public images where possible (e.g., `public.ecr.aws/docker/library/node:20-alpine`).

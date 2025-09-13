@@ -22,6 +22,11 @@ Establish DNS for lab resources under a delegated subdomain, e.g., `aws.deanloft
 - `dig +short app.aws.deanlofts.xyz` resolves to your ALB.
 - The subdomain NS delegation is active (queries resolve consistently).
 
+Screenshot
+
+- ![Route 53 hosted zone](../images/route53-hosted-zone.png)
+  Public hosted zone `aws.deanlofts.xyz` with NS set for delegation.
+
 ## Terraform Hints
 
 - `aws_route53_zone`, `aws_route53_record` (A/AAAA alias to `aws_lb` DNS name).

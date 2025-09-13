@@ -10,6 +10,11 @@
 - Repository: https://github.com/loftwah/demo-node-app
 - Self-test: On boot or on-demand, the app performs CRUD against S3, Postgres, and Redis and logs a summary. This validates runtime config, network, and credentials per environment.
 
+Screenshot
+
+- ![Demo Node app](../images/ecs-node-demo.png)
+  Demo Node.js app used across labs for ECS/EKS deployments.
+
 ## Decisions (Locked)
 
 - Region: `ap-southeast-2` (default across labs)

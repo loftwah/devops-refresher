@@ -31,6 +31,8 @@ PREFERRED=(
   validate-ssm-params.sh
   validate-backend.sh
   validate-iam.sh
+  validate-observability.sh
+  validate-cicd.sh
   validate-delegation.sh
   validate-demo-app-repo.sh
   validate-ecs-exec.sh
@@ -40,24 +42,29 @@ run_one() {
   local script_name="$1"
   local script_path="$SCRIPTS_DIR/$script_name"
 
-  if [[ ! -x "$script_path" ]]; then
-    if [[ -f "$script_path" ]]; then
-      info "Skipping $script_name (not executable)"
+  if [[ -x "$script_path" ]]; then
+    info "Running $script_name"
+    if "$script_path"; then
+      ok "$script_name passed"
+      return 0
     else
-      info "Skipping $script_name (not found)"
+      err "$script_name failed"
+      return 1
     fi
+  elif [[ -f "$script_path" ]]; then
+    info "Running $script_name via bash (not executable)"
+    if bash "$script_path"; then
+      ok "$script_name passed"
+      return 0
+    else
+      err "$script_name failed"
+      return 1
+    fi
+  else
+    info "Skipping $script_name (not found)"
     return 0
   fi
 
-  info "Running $script_name"
-  # Run and stream output. Do not exit on failure; collect status.
-  if "$script_path"; then
-    ok "$script_name passed"
-    return 0
-  else
-    err "$script_name failed"
-    return 1
-  fi
 }
 
 main() {

@@ -119,5 +119,5 @@ serviceAccount:
 - The chart does not create a ClusterSecretStore; manage it once per cluster. Sample manifests:
   - `kubernetes/manifests/externalsecrets-clustersecretstore-parameterstore.yml`
   - `kubernetes/manifests/externalsecrets-clustersecretstore-secretsmanager.yml`
-- To provision the ESO IRSA role/policy in a lab flow, see: `aws-labs/15-eks-external-secrets/README.md`.
+- To provision the ESO IRSA role/policy in a lab flow, see: `aws-labs/99-eks-external-secrets/README.md`.
 - If you prefer file mounts, use Secrets Store CSI Driver and sync to a Secret, then `envFrom` that Secret in `templates/deployment.yaml` (similar pattern).

@@ -25,23 +25,21 @@ ok()   { printf "${C_OK}[ OK ]${C_RESET} %s\n" "$*"; }
 err()  { printf "${C_FAIL}[FAIL]${C_RESET} %s\n" "$*"; }
 require() { command -v "$1" >/dev/null 2>&1 || { err "Required command '$1' not found"; exit 1; }; }
 
-AWS_PROFILE_EFFECTIVE="${AWS_PROFILE:-}"
-AWS_REGION_EFFECTIVE="${AWS_REGION:-${AWS_DEFAULT_REGION:-}}"
+PROFILE="devops-sandbox"
+REGION="ap-southeast-2"
 HOSTED_ZONE="aws.deanlofts.xyz"
 DOMAIN_FQDN="demo-node-app-ecs.aws.deanlofts.xyz"
 
 parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      -p|--profile) AWS_PROFILE_EFFECTIVE="$2"; shift 2 ;;
-      -r|--region)  AWS_REGION_EFFECTIVE="$2";  shift 2 ;;
+      # Profile/region are enforced by this lab; flags intentionally not supported
       -z|--hosted-zone) HOSTED_ZONE="$2"; shift 2 ;;
       -d|--domain) DOMAIN_FQDN="$2"; shift 2 ;;
       -h|--help)
         cat <<EOF
 Usage: $(basename "$0") [options]
-  -p, --profile NAME     AWS profile
-  -r, --region  NAME     AWS region
+  (Profile/region are enforced by this lab: devops-sandbox / ap-southeast-2)
   -z, --hosted-zone NAME Route53 hosted zone (default: $HOSTED_ZONE)
   -d, --domain FQDN      Domain for cert + A record (default: $DOMAIN_FQDN)
 EOF
@@ -51,16 +49,7 @@ EOF
   done
 }
 
-discover_defaults() {
-  if [[ -z "${AWS_PROFILE_EFFECTIVE:-}" && -f "$LAB_DIR/providers.tf" ]]; then
-    AWS_PROFILE_EFFECTIVE=$(awk '/variable "aws_profile"/,/}/ { if ($1=="default") { gsub(/"/, "", $3); print $3 } }' "$LAB_DIR/providers.tf" || true)
-  fi
-  if [[ -z "${AWS_REGION_EFFECTIVE:-}" && -f "$LAB_DIR/providers.tf" ]]; then
-    AWS_REGION_EFFECTIVE=$(awk '/variable "region"/,/}/ { if ($1=="default") { gsub(/"/, "", $3); print $3 } }' "$LAB_DIR/providers.tf" || true)
-  fi
-  [[ -n "$AWS_PROFILE_EFFECTIVE" ]] && info "Using AWS profile: $AWS_PROFILE_EFFECTIVE"
-  [[ -n "$AWS_REGION_EFFECTIVE"  ]] && info "Using AWS region:  $AWS_REGION_EFFECTIVE"
-}
+discover_defaults() { info "Using AWS profile: $PROFILE"; info "Using AWS region:  $REGION"; }
 
 read_sg_output() {
   require terraform
@@ -91,4 +80,3 @@ main() {
 }
 
 main "$@"
-
