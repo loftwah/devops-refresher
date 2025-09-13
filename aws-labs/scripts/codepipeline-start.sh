@@ -19,7 +19,7 @@ aws_call() {
   aws "$@" --profile "$PROFILE" --region "$REGION"
 }
 
-# Pre-flight: show context
+# Show context
 echo "Starting pipeline: $PIPELINE_NAME (region: $REGION, profile: $PROFILE)" >&2
 
 # Ensure pipeline exists to fail fast

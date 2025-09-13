@@ -59,7 +59,7 @@ terraform apply -auto-approve
 Helper scripts (optional)
 
 - Kick off a run:
-  - `aws-labs/scripts/codepipeline-start.sh` (defaults to `devops-refresher-app-pipeline` and `ap-southeast-2`)
+- `aws-labs/scripts/codepipeline-start.sh` (defaults to `devops-refresher-app-pipeline` and `ap-southeast-2`)
 - Wait for success and summarize:
   - `aws-labs/scripts/verify-pipeline.sh`
 - Confirm ECS service is stable and print the current image:
@@ -110,6 +110,30 @@ Common Failures and Fixes
 - Region mismatch
   - Cause: CodeConnections ARN is in `ap-southeast-2`; pipeline in wrong region.
   - Fix: Provider for this lab uses `var.region` (default `ap-southeast-2`). Keep pipeline and connection in same region.
+
+Troubleshooting (Copy/Paste)
+
+- Check artifacts bucket policy grants BOTH roles (CodePipeline + CodeBuild):
+  ```bash
+  aws s3api get-bucket-policy --bucket <your-artifacts-bucket> --query Policy | jq -r .
+  # Expect principals for both roles and actions: s3:GetObject, s3:GetObjectVersion, s3:PutObject, s3:GetBucketVersioning
+  ```
+
+- Inspect CodePipeline role policy for ECS actions:
+  ```bash
+  aws iam get-role-policy \
+    --role-name devops-refresher-codepipeline-role \
+    --policy-name devops-refresher-codepipeline \
+    --query 'PolicyDocument.Statement[].Action'
+  # Expect: ecs:DescribeClusters, ecs:DescribeServices, ecs:DescribeTaskDefinition, ecs:RegisterTaskDefinition, ecs:UpdateService
+  ```
+
+- One-shot validation (recommended):
+  ```bash
+  ../scripts/validate-cicd.sh
+  ```
+
+  
 
 CI vs CD Flow (and what to echo)
 

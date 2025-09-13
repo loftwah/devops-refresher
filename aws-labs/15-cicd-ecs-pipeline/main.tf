@@ -261,3 +261,4 @@ resource "aws_codepipeline" "app" {
 
 output "pipeline_name" { value = aws_codepipeline.app.name }
 output "codebuild_project" { value = aws_codebuild_project.app.name }
+output "artifacts_bucket_name" { value = local.artifacts_bucket_name_effective }

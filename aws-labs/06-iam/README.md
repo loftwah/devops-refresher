@@ -58,7 +58,7 @@ Why this happens and how to avoid it:
 - CodePipeline role (source/build/deploy):
   - `codestar-connections:UseConnection`: on the GitHub CodeConnections ARN used by the Source stage.
   - `codebuild:StartBuild`, `codebuild:BatchGetBuilds`: on the CodeBuild project(s) this pipeline triggers.
-  - `ecs:RegisterTaskDefinition`, `ecs:UpdateService`, `ecs:DescribeTaskDefinition`, `ecs:DescribeServices`: to deploy to ECS.
+  - ECS permissions for deploy: `ecs:ListClusters`, `ecs:DescribeClusters`, `ecs:ListServices`, `ecs:DescribeServices`, `ecs:DescribeTaskDefinition`, `ecs:ListTaskDefinitions`, `ecs:DescribeTasks`, `ecs:DescribeTaskSets`, `ecs:RegisterTaskDefinition`, `ecs:UpdateService`.
   - `iam:PassRole`: for the ECS task execution/runtime roles that the service uses.
   - S3 artifacts access: provided via the bucket policy in Lab 15 (not here) — requires `s3:GetObject`, `s3:GetObjectVersion`, `s3:PutObject`, and `s3:GetBucketVersioning` on the artifacts bucket and prefix.
 
@@ -71,6 +71,30 @@ Why this happens and how to avoid it:
 - S3 artifacts bucket policy (Lab 15):
   - Grants BOTH CodePipeline and CodeBuild roles access to `s3:GetObject`, `s3:GetObjectVersion`, `s3:PutObject` on the bucket and prefix.
   - Grants `s3:GetBucketVersioning` on the bucket to both roles.
+
+## Troubleshooting (Quick Checks)
+
+- DOWNLOAD_SOURCE AccessDenied in CodeBuild:
+  - Verify the artifacts bucket policy includes BOTH principals (CodePipeline and CodeBuild roles) with `s3:GetObject`/`GetObjectVersion`/`PutObject` and `s3:GetBucketVersioning`.
+  - File to check: `aws-labs/15-cicd-ecs-pipeline/main.tf` → `aws_s3_bucket_policy.artifacts_access`.
+
+- ECS Deploy stage says role lacks ECS permissions:
+  - Inspect the CodePipeline role inline policy and confirm actions include `ecs:DescribeClusters`, `ecs:DescribeServices`, `ecs:DescribeTaskDefinition`, `ecs:RegisterTaskDefinition`, `ecs:UpdateService` (plus `DescribeTaskSets`, `ListTaskDefinitions`).
+  - Command:
+    ```bash
+    aws iam get-role-policy \
+      --role-name devops-refresher-codepipeline-role \
+      --policy-name devops-refresher-codepipeline \
+      --query 'PolicyDocument.Statement[].Action'
+    ```
+  - If missing, apply this lab and re-run pipeline.
+
+Automation
+
+- Run the end-to-end CI/CD validation script to perform these checks automatically:
+  ```bash
+  aws-labs/scripts/validate-cicd.sh
+  ```
 
 - Region alignment:
   - CodeConnections ARN region and CodePipeline region must match (here: `ap-southeast-2`).

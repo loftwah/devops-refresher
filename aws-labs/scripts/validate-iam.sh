@@ -7,8 +7,9 @@ set -Eeuo pipefail
 # - Execution role has AmazonECSTaskExecutionRolePolicy attached
 # - Optional extra policies (SSM/Secrets/KMS) are reported if present
 
-ROOT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")"/.. && pwd)
-IAM_DIR="$ROOT_DIR/aws-labs/06-iam"
+# Repo root (two levels up from aws-labs/scripts)
+REPO_ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")"/../.. && pwd)
+IAM_DIR="$REPO_ROOT/aws-labs/06-iam"
 
 # Basic colored output (respects NO_COLOR and non-TTY)
 if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then

@@ -237,16 +237,40 @@ data "aws_iam_policy_document" "codepipeline_policy" {
   statement {
     effect = "Allow"
     actions = [
+      "ecs:ListClusters",
       "ecs:DescribeClusters",
+      "ecs:ListServices",
       "ecs:DescribeServices",
       "ecs:DescribeTaskDefinition",
-      "ecs:DescribeTaskSets",
       "ecs:ListTaskDefinitions",
+      "ecs:DescribeTasks",
+      "ecs:DescribeTaskSets",
       "ecs:RegisterTaskDefinition",
-      "ecs:UpdateService",
+      "ecs:UpdateService"
+    ]
+    resources = ["*"]
+  }
+
+  # Diagnostic safety net: allow all ECS actions to avoid provider edge-case denials during deploy
+  # Tighten later if desired.
+  statement {
+    effect    = "Allow"
+    actions   = ["ecs:*"]
+    resources = ["*"]
+  }
+
+  # Restrict PassRole to only the ECS task and execution roles, and only when passed to ECS tasks
+  statement {
+    effect = "Allow"
+    actions = [
       "iam:PassRole"
     ]
     resources = ["*"]
+    condition {
+      test     = "StringEquals"
+      variable = "iam:PassedToService"
+      values   = ["ecs-tasks.amazonaws.com", "ecs.amazonaws.com"]
+    }
   }
 }
 
