@@ -1,0 +1,28 @@
+# Example mapping of GNS3 nodes/interfaces to roles and addresses
+
+core:
+  wan_if: eth0 # to Internet cloud
+  d1_if: eth1 # to dist-a (10.0.1.1/30)
+  d2_if: eth2 # to dist-b (10.0.2.1/30)
+  wan_gw: 198.51.100.1
+
+dist-a:
+  uplink_if: eth0 # to core (10.0.1.2/30)
+  trunk_if: eth1 # to edge-1 (carries VLAN 10,20)
+
+dist-b:
+  uplink_if: eth0 # to core (10.0.2.2/30)
+  trunk_if: eth1 # to edge-2 (carries VLAN 10,20)
+
+edge-1:
+  br_if: br0 # Linux bridge with access ports
+
+edge-2:
+  br_if: br0
+
+dhcp:
+  connect_to: core
+
+notes:
+  - Adjust interface names to match GNS3 VM templates
+  - Apply FRR configs from the frr/ subfolders to the matching nodes

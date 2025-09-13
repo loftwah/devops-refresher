@@ -1,0 +1,26 @@
+{
+  "name": "gns3-nat-dhcp-stp",
+  "type": "topology",
+  "topology": {
+    "nodes": [
+      { "name": "edge", "node_type": "qemu", "template": "Linux-Edge", "id": "REPLACE-UUID-EDGE" },
+      { "name": "sw1",  "node_type": "vpcs", "template": "Linux-Bridge", "id": "REPLACE-UUID-SW1" },
+      { "name": "sw2",  "node_type": "vpcs", "template": "Linux-Bridge", "id": "REPLACE-UUID-SW2" },
+      { "name": "dhcp", "node_type": "qemu", "template": "Kea-DHCP", "id": "REPLACE-UUID-DHCP" },
+      { "name": "svc",  "node_type": "qemu", "template": "Linux-Server", "id": "REPLACE-UUID-SVC" },
+      { "name": "h1",   "node_type": "qemu", "template": "Linux-Client", "id": "REPLACE-UUID-H1" },
+      { "name": "h2",   "node_type": "qemu", "template": "Linux-Client", "id": "REPLACE-UUID-H2" },
+      { "name": "internet", "node_type": "cloud", "template": "Cloud", "id": "REPLACE-UUID-CLOUD" }
+    ],
+    "links": [
+      { "nodes": ["internet:eth0", "edge:eth0"], "note": "WAN" },
+      { "nodes": ["edge:eth1", "sw1:eth0"],     "note": "LAN trunk VLANs 10,20" },
+      { "nodes": ["sw1:eth1", "sw2:eth0"],      "note": "Access link (loop test between sw1<->sw2)" },
+      { "nodes": ["sw1:eth2", "h1:eth0"],       "note": "Host A (VLAN10)" },
+      { "nodes": ["sw2:eth1", "h2:eth0"],       "note": "Host B (VLAN10)" },
+      { "nodes": ["sw2:eth2", "svc:eth0"],      "note": "Server (VLAN20)" },
+      { "nodes": ["sw1:eth3", "dhcp:eth0"],     "note": "DHCP server (VLAN10)" }
+    ]
+  },
+  "notes": "Replace template names with your GNS3 templates, then map interfaces as per node-mapping.example.yaml."
+}

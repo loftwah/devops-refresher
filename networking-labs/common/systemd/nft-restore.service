@@ -1,0 +1,13 @@
+[Unit]
+Description=Load nftables rules from /etc/nftables.conf
+After=network-pre.target
+Wants=network-pre.target
+ConditionFileNotEmpty=/etc/nftables.conf
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/nft -f /etc/nftables.conf
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

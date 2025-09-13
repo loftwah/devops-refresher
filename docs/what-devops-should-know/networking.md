@@ -168,6 +168,164 @@ graph LR
 
 The dashed link is likely in a blocking state. Routed access removes this behaviour by making both links Layer 3.
 
+Deeper STP: roles, convergence, and failure modes
+
+- What it is: STP/RSTP elect a root bridge and assign port roles (Root, Designated, Alternate/Blocking) to prevent loops.
+- Why it matters: Misconfiguration or accidental loops cause broadcast storms, MAC flapping, and brownouts that look like intermittent application failure.
+
+Roles and a simple tree
+
+```mermaid
+flowchart LR
+  RB((Root Bridge)):::root
+  A[Access 1] --- RB
+  B[Access 2] --- RB
+  A --- B
+  classDef root fill:#efe,stroke:#2a2
+  linkStyle 2 stroke-dasharray: 6 3
+```
+
+- The dashed A—B link blocks to prevent a loop. If RB fails, RSTP reconverges and may unblock A—B.
+- Elect the root deterministically by setting bridge priority on your distribution/core. Do not let it “float”.
+
+What a broadcast storm looks like
+
+```mermaid
+sequenceDiagram
+  participant H as Host A
+  participant S1 as Switch 1
+  participant S2 as Switch 2
+  Note over S1,S2: Loop exists between S1 and S2; STP disabled/misconfigured
+  H->>S1: ARP Request (broadcast)
+  S1->>S2: Flood (broadcast)
+  S2->>S1: Flood back (loop)
+  S1->>S2: Flood again (amplified)
+  Note over S1,S2: Exponential growth saturates links and CPUs
+```
+
+Lab: build and observe a safe L2 loop on Linux
+
+- Goal quickly demonstrate a loop and broadcast amplification in disposable namespaces. Do NOT run on production hosts.
+- Linux bridges default STP off; observe the storm, then enable STP and watch one link block.
+
+```bash
+# Namespaces
+sudo ip netns add ns1
+sudo ip netns add ns2
+sudo ip netns add host
+
+# Two parallel interconnects (creates a loop between the two bridges)
+sudo ip link add a1 type veth peer name a2
+sudo ip link add b1 type veth peer name b2
+
+# Host attachment
+sudo ip link add h type veth peer name hp
+
+# Move ends into namespaces
+sudo ip link set a1 netns ns1; sudo ip link set b1 netns ns1
+sudo ip link set a2 netns ns2; sudo ip link set b2 netns ns2
+sudo ip link set h netns host; sudo ip link set hp netns ns1
+
+# Create bridges
+sudo ip -n ns1 link add br0 type bridge
+sudo ip -n ns2 link add br0 type bridge
+
+# Attach ports to bridges
+sudo ip -n ns1 link set a1 master br0
+sudo ip -n ns1 link set b1 master br0
+sudo ip -n ns1 link set hp master br0
+sudo ip -n ns2 link set a2 master br0
+sudo ip -n ns2 link set b2 master br0
+
+# Bring links up
+for n in ns1 ns2; do
+  sudo ip -n $n link set br0 up
+  for i in a1 b1 a2 b2 hp; do sudo ip -n $n link set $i up 2>/dev/null || true; done
+done
+sudo ip -n host link set h up
+
+# Give the host an IP in a fake VLAN and generate ARP
+sudo ip -n host addr add 192.168.50.10/24 dev h
+sudo ip -n host arping -I h -c 100 192.168.50.20 &
+
+# Watch broadcast/multicast frames explode with STP off
+sudo ip -n ns1 tcpdump -ni br0 -vv 'broadcast or multicast' &
+sudo ip -n ns2 tcpdump -ni br0 -vv 'broadcast or multicast' &
+
+# Now enable STP to stop the storm (RSTP requires userspace; basic STP shown)
+sudo ip -n ns1 link set dev br0 type bridge stp_state 1
+sudo ip -n ns2 link set dev br0 type bridge stp_state 1
+```
+
+Signs you will see in the wild
+
+- MAC flapping logs: the same MAC moves rapidly between two ports that form a loop.
+- CPU spikes on access switches and high broadcast/multicast counters on interfaces.
+- DHCP offers/acks failing intermittently; ARP tables constantly churning.
+
+Prevent loops at the edge (vendor‑style examples)
+
+Cisco IOS/IOS‑XE
+
+```text
+interface Gi1/0/10
+ switchport mode access
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ storm-control broadcast level 1.00 0.50
+ storm-control action shutdown
+```
+
+Arista EOS
+
+```text
+interface Ethernet1
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ storm-control broadcast level pps 1000
+```
+
+- Enable PortFast on user/server access ports so they skip STP listening/learning.
+- Enable BPDU Guard on PortFast ports; shut the port if a BPDU is seen (signals an accidental loop via unmanaged switch).
+- Configure storm control (broadcast/multicast/unknown‑unicast) with sane thresholds to cap damage.
+- Prefer routed access or MLAG/VPC to avoid STP blocking on uplinks.
+
+Common Layer 2 pitfalls you can detect quickly
+
+- Native VLAN mismatch on a trunk: untagged frames leak between VLANs. Symptom: ARP entries resolve to unexpected MAC/VLAN.
+- VLAN pruning/allow lists: required VLAN missing on one side of a trunk; hosts can talk in one direction only via asymmetric flooding.
+- LACP mode mismatch: one side `active`, the other `on` (static) causes hashing/blackholing. Use `active`/`passive` and verify partner state.
+- Asymmetric MTU inside a VLAN (tunnelling overlays, QinQ): PMTUD blackholes and odd drops. Verify `ip link` MTU and test with `ping -M do -s`.
+
+Visualising a native VLAN mismatch
+
+```mermaid
+flowchart LR
+  subgraph SW1
+    A1[Port gi1  VLAN 10 access]
+    T1[Trunk gi2 native 10 allow 10,20]
+  end
+  subgraph SW2
+    A2[Port gi1  VLAN 20 access]
+    T2[Trunk gi2 native 20 allow 10,20]
+  end
+  A1-- untagged -->T1-- untagged -->T2-- untagged -->A2
+  note right of A2: Host in VLAN20 receives frames from VLAN10
+```
+
+Operate it
+
+- Intentionally set root bridge priority and secondary root per VLAN/instance.
+- Keep STP diameter small; push L3 to the edge so STP rarely needs to act.
+- During incidents, check: root bridge MAC, port roles on each hop, MAC table stability, and interface storm‑control counters.
+
+References and primers
+
+- Spanning Tree Protocol overview: https://en.wikipedia.org/wiki/Spanning_Tree_Protocol
+- Rapid STP (802.1w) basics: https://en.wikipedia.org/wiki/Spanning_Tree_Protocol#Rapid_Spanning_Tree_Protocol
+- Broadcast storm: https://en.wikipedia.org/wiki/Broadcast_storm
+- Linux bridge how‑to: `man 8 bridge`
+
 ---
 
 ## 5. Switches and routers what they do and how to use them together
@@ -699,6 +857,522 @@ Cost traps you will actually hit
 
 ---
 
+## 18. Real‑world scenarios and playbooks
+
+- What it is: Brief, concrete incidents you will encounter, with detection and fixes.
+- Why it matters: Having a mental model and a few commands ready cuts MTTR.
+
+Campus access loop via unmanaged switch
+
+- Symptom: MAC flapping between two access ports, broadcast counters racing, DHCP timeouts.
+- Detect: `show mac address-table | include Flap` (vendor‑specific), interface broadcast/multicast counters, syslog BPDU messages.
+- Fix: Enable `spanning-tree portfast`, `spanning-tree bpduguard enable`, and storm control on edge ports. Educate users: “no mini‑switches”.
+
+Server dual‑home without LACP
+
+- Symptom: Intermittent packet loss under load; one of two links inconsistently forwards. ARP entries alternate.
+- Detect: `show etherchannel summary` or LACP partner state; on Linux, check `teamdctl`/`cat /proc/net/bonding/bond0`.
+- Fix: Use LACP active/passive on both sides; or use routing with two independent links and ECMP.
+
+Native VLAN mismatch on trunks
+
+- Symptom: Cross‑VLAN leakage of broadcasts/ARP; security alarms about unexpected MAC in VLAN.
+- Detect: Compare trunk native VLAN and allowed VLANs on both sides. Capture shows untagged frames where tags expected.
+- Fix: Standardise native VLAN (prefer none/unused) and explicitly tag all VLANs on trunks.
+
+HTTP/3 fallback and firewall surprises
+
+- Symptom: Some clients slower; QUIC handshake fails, silently falls back to HTTP/2.
+- Detect: `curl -v --http3` vs `--http2`; capture shows blocked UDP/443.
+- Fix: Permit UDP/443 on edge; if not possible, tune HTTP/2 settings and TCP.
+
+Leaf‑spine L2 vs MLAG
+
+- Symptom: STP blocking on one of two uplinks from an access switch; only one uplink forwards.
+- Option A RSTP: Accept one blocked port; small broadcast domain; fast failover.
+- Option B MLAG/VPC: Active/active uplinks without STP blocking; requires vendor pair and ISC/peer link.
+
+```mermaid
+flowchart LR
+  subgraph Dist MLAG pair
+    D1[Dist A]---D2[Dist B]
+  end
+  A1[Access]
+  A1===D1
+  A1===D2
+  %% Active/active; no STP block on uplinks
+```
+
+Useful neutral references
+
+- Link aggregation: https://en.wikipedia.org/wiki/Link_aggregation
+- MC‑LAG concept: https://en.wikipedia.org/wiki/Multi-chassis_link_aggregation
+- VLANs: https://en.wikipedia.org/wiki/Virtual_LAN
+- Amazon VPC overview: https://docs.aws.amazon.com/vpc/latest/userguide/what-is-amazon-vpc.html
+
+---
+
+## 19. NAT and Port Forwarding
+
+- What it is: NAT translates addresses/ports between private and public spaces. Port forwarding (DNAT) exposes an internal service inbound.
+- Why it matters: Nearly every edge and lab uses PAT/NAPT; debugging NAT state and hairpins is common.
+
+Concepts you’ll use
+
+- SNAT/masquerade: many internal to one external (outbound internet).
+- DNAT/port forward: map `WAN:port` to `LAN:host:port` (inbound access).
+- Hairpin NAT: client inside reaches the public IP of its own service; requires NAT reflection.
+
+Visual: simple port forward
+
+```mermaid
+flowchart LR
+  C[Client 203.0.113.50] -->|TCP 443| R[Edge NAT 198.51.100.10]
+  R -->|DNAT to 10.0.0.10:8443| S[Service 10.0.0.10]
+```
+
+Linux `nftables` example (IPv4)
+
+```bash
+sudo nft add table ip nat
+sudo nft add chain ip nat prerouting { type nat hook prerouting priority -100; }
+sudo nft add chain ip nat postrouting { type nat hook postrouting priority 100; }
+
+# DNAT WAN:443 -> 10.0.0.10:8443
+sudo nft add rule ip nat prerouting iifname "eth0" tcp dport 443 dnat to 10.0.0.10:8443
+
+# SNAT LAN -> internet via WAN address
+sudo nft add rule ip nat postrouting oifname "eth0" masquerade
+```
+
+Common pitfalls
+
+- Forwarded but not reachable: missing firewall allow on WAN interface, or service bound only to localhost.
+- Hairpin fails: add reflection DNAT/SNAT or use split‑horizon DNS.
+- Overlays (WireGuard/Tailscale) and NAT: MTU and keepalive settings matter; some NATs time out UDP quickly.
+
+---
+
+## 20. SSH Tunneling and Port Forwarding
+
+- What it is: Encrypted tunnels for ad‑hoc access. Local/remote/dynamic forwards map ports across hosts.
+- Why it matters: Staple for bastion access, reaching private DBs, or quick SOCKS proxies.
+
+Modes you’ll actually use
+
+- Local forward `-L LPORT:HOST:PORT`: expose remote service locally.
+- Remote forward `-R RPORT:HOST:PORT`: expose your local service on the remote.
+- Dynamic `-D LPORT`: local SOCKS5 proxy; apps route via SSH.
+
+Examples
+
+```bash
+# Reach a private DB via bastion
+ssh -J user@bastion corp@db-host -L 5432:127.0.0.1:5432
+psql -h 127.0.0.1 -p 5432
+
+# Expose local dev server to a bastion (careful with GatewayPorts)
+ssh user@bastion -R 8080:127.0.0.1:3000
+
+# Ad-hoc SOCKS proxy for a single command
+ssh -N -D 1080 user@bastion &
+ALL_PROXY=socks5h://127.0.0.1:1080 curl https://ifconfig.me
+```
+
+Hardening and ops
+
+- Use `ProxyJump` in `~/.ssh/config`; restrict with `PermitOpen` and `GatewayPorts no`.
+- Prefer key + FIDO2. Use `ssh -o ServerAliveInterval=30` through flaky NATs.
+
+---
+
+## 21. HTTP/S Streaming and Reverse Proxying
+
+- What it is: HTTP streaming (chunked, H2 streams), WebSockets, and reverse proxies terminate TLS and fan‑out to backends.
+- Why it matters: Idle timeouts, buffering, and proxy headers affect real‑time systems and media.
+
+Patterns
+
+- Reverse proxy: edge terminates TLS and forwards to service; add `X-Forwarded-For`/`Forwarded`.
+- Forward proxy: clients egress via proxy (security, egress control).
+- Long‑lived connections: H2 streams, WS, gRPC—watch proxy idle timeouts.
+
+Nginx reverse proxy (WebSockets and H2)
+
+```nginx
+server {
+  listen 443 ssl http2;
+  server_name app.example.com;
+  ssl_certificate ...; ssl_certificate_key ...;
+  location / {
+    proxy_pass http://10.0.0.20:8080;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_http_version 1.1; proxy_set_header Upgrade $http_upgrade; proxy_set_header Connection "upgrade";
+    proxy_read_timeout 3600s;
+  }
+}
+```
+
+Troubleshooting
+
+- Compare `curl -N`, `--http2`, `--http3`. Check LB idle timeouts and buffer sizes. Baseline with `tcpdump` at edge and backend.
+
+---
+
+## 22. DHCP Advanced: Reservations, Snooping, Helpers
+
+- What it is: DHCP at scale with predictable addressing and security features.
+- Why it matters: Reservations make ops predictable; snooping + port security stop rogue DHCP.
+
+Reservations and options
+
+- Bind MAC → IP on server; use for infra nodes and printers.
+- Options you’ll use: 3 router, 6 DNS, 15 domain, 42 NTP, 66/67 PXE, 121/249 classless static routes.
+- Option 82 (relay info): carries switch/port to the DHCP server.
+
+Relays and HA
+
+- On the SVI, set helpers to DHCP servers. Use two for HA.
+- Cisco: `ip helper-address 10.0.0.5` on VLAN SVI.
+
+Security at the edge
+
+```text
+ip dhcp snooping
+ip dhcp snooping vlan 10,20
+interface Gi1/0/10
+ switchport mode access
+ ip dhcp snooping limit rate 30
+ ip verify source vlan dhcp-snooping port-security
+ switchport port-security maximum 2
+ switchport port-security mac-address sticky
+ switchport port-security violation restrict
+```
+
+---
+
+## 23. IP Range Strategies and Default Routes
+
+- What it is: Hierarchical addressing and sane defaults that summarise cleanly.
+- Why it matters: Easier routing, fewer ACLs, simpler incident scopes.
+
+Strategies
+
+- Reserve per‑site blocks (e.g., `/20` per site), slice predictable `/24` per VLAN. Keep management and user subnets separate.
+- IPv6: allocate `/48` per site; hand `/64` per LAN. Use ULA for internal‑only.
+- Summarise at distribution; align VLAN numbers with third octet when possible.
+
+Default routes
+
+```bash
+# Linux
+ip route add default via 10.0.0.1
+ip -6 route add default via 2001:db8:1::1
+
+# FRR static with tracked next-hop
+ip route 0.0.0.0/0 203.0.113.1
+ipv6 route ::/0 2001:db8:ffff::1
+```
+
+Visual
+
+```mermaid
+flowchart LR
+  S[Subnet 10.10.10.0/24] --> D[Dist 10.10.0.0/16]
+  D --> C[Core 10.0.0.0/8]
+  C --> I[Default 0.0.0.0/0]
+```
+
+---
+
+## 24. Firewalls: Quick Patterns
+
+- What it is: Host and network firewalls applying stateful policy; often combined with NAT.
+- Why it matters: Clear allow‑lists and minimal exposure reduce blast radius.
+
+Linux `nftables` minimal
+
+```bash
+sudo nft add table inet filter
+sudo nft add chain inet filter input { type filter hook input priority 0; policy drop; }
+sudo nft add rule inet filter input ct state established,related accept
+sudo nft add rule inet filter input iif lo accept
+sudo nft add rule inet filter input tcp dport {22,80,443} accept
+```
+
+`ufw` quick
+
+```bash
+sudo ufw default deny incoming
+sudo ufw allow 22/tcp
+sudo ufw allow 443/tcp
+sudo ufw enable
+```
+
+Cloud note: Security Groups are stateful per‑ENI; NACLs are stateless per subnet—use sparingly.
+
+---
+
+## 25. VPNs: OpenVPN, WireGuard, Tailscale, ZeroTier
+
+- What it is: Encrypted overlays for site‑to‑site, user‑to‑site, or mesh.
+- Why it matters: Hybrid access, secure admin paths, and multi‑cloud linking.
+
+WireGuard quick site‑to‑site
+
+```ini
+# /etc/wireguard/wg0.conf (site A)
+[Interface]
+Address = 10.200.0.1/24
+ListenPort = 51820
+PrivateKey = <A-priv>
+
+[Peer]
+PublicKey = <B-pub>
+AllowedIPs = 10.200.0.0/24
+Endpoint = b.example.net:51820
+PersistentKeepalive = 25
+```
+
+OpenVPN notes
+
+- TLS‑based; flexible L3/L2; more knobs, more overhead. Good for legacy and mixed clients.
+
+Overlays (Tailscale/ZeroTier)
+
+- Managed control plane builds WireGuard/virtual links; easy mesh. Great for teams and labs.
+- Be aware of relay (DERP) vs direct and ACL models. Consider egress routing and DNS integration.
+
+Visual
+
+```mermaid
+flowchart LR
+  A[Site A 10.10.0.0/16] --- WG((WireGuard)) --- B[Site B 10.20.0.0/16]
+```
+
+---
+
+## 26. ISPs, GPON, and the Internet
+
+- What it is: Access technologies and how your edge meets the internet.
+- Why it matters: MTU, CGNAT, and PPPoE shape reliability and port forwarding.
+
+GPON quick
+
+- ONT at premises, OLT at exchange. ISPs may deliver via PPPoE or DHCP; VLAN tags common. PPPoE reduces MTU to ~1492—tune MSS.
+- Some ISPs use CGNAT; inbound port forwards won’t work—use reverse tunnels or VPN/overlays.
+
+Edge patterns
+
+- Bridge ISP CPE and run your own router/firewall. Prefer public static IPs when hosting.
+- Peering vs transit: enterprises normally buy transit from ISPs; peering is for networks exchanging traffic as equals.
+
+---
+
+## 27. Emulation: GNS3
+
+- What it is: A flexible, open lab platform using QEMU and real network software images.
+- Why it matters: Lets you build modern topologies (Linux, FRR, VyOS, cEOS/cSR) and integrate with your host network.
+
+Notes
+
+- We standardize on GNS3 for the labs in this repo to keep things consistent.
+- Consider Containerlab/Netlab for declarative topologies when you’re comfortable.
+- Tip: Keep lab configs under version control; add a simple topology diagram and README in each lab folder.
+
+Optional alternative
+
+- A simple Packet Tracer campus lab is included as an optional alternative for quick experimentation: `networking-labs/packet-tracer-campus/README.md`.
+
+---
+
+## 28. Hands‑On Lab: NAT + DHCP + STP (GNS3)
+
+- What it is: A reproducible mini‑campus with NAT to the internet, DHCP for clients, and STP protecting L2.
+- Why it matters: You can safely practice port forwards, hairpin, DHCP options, and loop mitigation.
+
+Topology
+
+```mermaid
+flowchart LR
+  IC[Internet Cloud]
+  EDGE[Edge Linux  nft NAT]
+  SW1[Linux Switch br0 STP]
+  SW2[Linux Switch br0 STP]
+  DHCP[(Kea DHCPv4)]
+  SVC[App Server 10.10.20.10]
+  H1[Host A]
+  H2[Host B]
+  IC --- EDGE
+  EDGE ---|trunk| SW1
+  SW1 --- SW2
+  SW1 --- H1
+  SW2 --- H2
+  SW2 --- SVC
+  SW1 --- DHCP
+```
+
+Addressing
+
+- WAN: `EDGE eth0` DHCP or `198.51.100.10/24` (example)
+- LAN trunk: `EDGE eth1` with VLANs 10 (clients) and 20 (servers)
+- VLAN10: `10.10.10.0/24` gateway `10.10.10.1`
+- VLAN20: `10.10.20.0/24` gateway `10.10.20.1`
+
+Edge Linux (routing + NAT + DNAT + hairpin)
+
+```bash
+# Subinterfaces for VLANs
+sudo ip link add link eth1 name eth1.10 type vlan id 10
+sudo ip link add link eth1 name eth1.20 type vlan id 20
+sudo ip addr add 10.10.10.1/24 dev eth1.10
+sudo ip addr add 10.10.20.1/24 dev eth1.20
+sudo ip link set eth1.10 up; sudo ip link set eth1.20 up
+sudo sysctl -w net.ipv4.ip_forward=1
+
+# nftables
+sudo nft -f - <<'EOF'
+table ip nat {
+  chain prerouting { type nat hook prerouting priority -100; }
+  chain postrouting { type nat hook postrouting priority 100; }
+}
+
+# Outbound SNAT (masquerade) via WAN eth0
+add rule ip nat postrouting oifname "eth0" masquerade
+
+# Inbound DNAT: WAN:443 -> 10.10.20.10:443
+add rule ip nat prerouting iifname "eth0" tcp dport 443 dnat to 10.10.20.10:443
+
+# Hairpin: LAN clients reaching our own WAN IP on 443
+# Replace 198.51.100.10 with your real WAN address
+add rule ip nat prerouting iifname { "eth1.10", "eth1.20" } ip daddr 198.51.100.10 tcp dport 443 dnat to 10.10.20.10:443
+
+# Hairpin SNAT back to gateway's LAN IP so replies return via EDGE
+add rule ip nat postrouting oifname { "eth1.10", "eth1.20" } ip saddr 10.10.0.0/16 ip daddr 10.10.20.10 masquerade
+EOF
+```
+
+Linux Switch nodes (enable STP)
+
+```bash
+sudo ip link add br0 type bridge
+sudo ip link set br0 up
+sudo ip link set dev br0 type bridge stp_state 1
+# Add attached ports to br0; repeat per switch
+sudo ip link set eth1 master br0
+sudo ip link set eth2 master br0
+sudo ip link set eth3 master br0
+```
+
+Kea DHCPv4 server (VLAN10)
+
+```json
+{
+  "Dhcp4": {
+    "interfaces-config": { "interfaces": ["eth0"] },
+    "subnet4": [
+      {
+        "subnet": "10.10.10.0/24",
+        "pools": [{ "pool": "10.10.10.50 - 10.10.10.199" }],
+        "option-data": [
+          { "name": "routers", "data": "10.10.10.1" },
+          { "name": "domain-name-servers", "data": "10.10.20.10,1.1.1.1" },
+          { "name": "domain-name", "data": "lab.example" }
+        ],
+        "reservations": [
+          {
+            "hw-address": "00:11:22:33:44:55",
+            "ip-address": "10.10.10.10",
+            "hostname": "printer-1"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Exercises
+
+- Verify DHCP lease on H1/H2 and default route to `10.10.10.1`.
+- Create a loop between SW1 and SW2; watch storm; enable STP and see the block.
+- From internet side, hit `https://WAN_IP/` and reach SVC via DNAT.
+- From H1, curl `https://WAN_IP/` to confirm hairpin works.
+
+---
+
+## 29. VPN Decision Guide
+
+- WireGuard: very fast, simple config, UDP only, small code base. Best for site‑to‑site, SRE tunnels, containers. Needs external tooling for dynamic peers/ACL.
+- OpenVPN: very flexible (TCP/UDP, TLS auth, L2/L3), broad client support. Slower and heavier. Good for legacy, mixed platforms, or when TLS features matter.
+- Tailscale: managed WireGuard mesh with easy NAT traversal, identity/ACLs, DNS, exit nodes. Great for teams/admin/dev. Consider headscale if you need self‑hosted control plane.
+- ZeroTier: easy L2/L3 overlay with central controller, good NAT traversal. Useful for ad‑hoc L2 networks and small teams.
+
+Quick picks
+
+- Site‑to‑site with infra control: WireGuard (FRR + wg, or VyOS).
+- Remote users with SSO and device posture: Tailscale.
+- Legacy L2 bridging or stringent TLS: OpenVPN.
+- Simple L2 overlay across NAT: ZeroTier.
+
+---
+
+## 30. Kea DHCP and Hairpin NAT Details
+
+Kea service notes
+
+- Package: `kea-dhcp4-server` (Debian/Ubuntu). Service file `kea-dhcp4.service`. Config at `/etc/kea/kea-dhcp4.conf`.
+- Enable relay info (Option 82) parsing if using DHCP snooping/relay.
+
+Hairpin NAT patterns (Linux nftables)
+
+```bash
+WAN_IP=198.51.100.10
+LAN_NET=10.10.0.0/16
+SVC_IP=10.10.20.10
+
+# 1) DNAT inside the LAN when clients target WAN_IP
+sudo nft add rule ip nat prerouting iifname { "eth1.10", "eth1.20" } ip daddr $WAN_IP tcp dport 443 dnat to $SVC_IP:443
+
+# 2) Ensure return path stays via the gateway by masquerading
+sudo nft add rule ip nat postrouting oifname { "eth1.10", "eth1.20" } ip saddr $LAN_NET ip daddr $SVC_IP masquerade
+```
+
+Verification
+
+- From a LAN host, curl `https://$WAN_IP/` and ensure the server logs the client LAN IP or the gateway IP depending on SNAT; set `proxy_protocol`/`X-Forwarded-For` appropriately at the reverse proxy.
+
+---
+
+## 31. Labs and Walkthroughs
+
+- GNS3 NAT + DHCP + STP lab: `networking-labs/gns3-nat-dhcp-stp/README.md`
+  - Includes edge `nftables` NAT + DNAT + hairpin script and Kea config.
+  - Walkthrough: build topology, verify DHCP, test hairpin, trigger and fix an STP loop.
+  - Template: `networking-labs/gns3-nat-dhcp-stp/project.gns3project.template`
+
+- GNS3 Core + OSPF + DHCP lab: `networking-labs/gns3-core-ospf-dhcp/README.md`
+  - Core router/gateway with internet access, core/distribution/edge layers, OSPF, central DHCP with relays.
+  - Walkthrough: bring up OSPF, verify routes and failover, validate DHCP relay per VLAN.
+  - Template: `networking-labs/gns3-core-ospf-dhcp/project.gns3project.template`
+
+Quick start guide
+
+- See `docs/networking-labs-quickstart.md` for a suggested learning path and tips.
+
+Optional alternative
+
+- Packet Tracer Campus (simple): `networking-labs/packet-tracer-campus/README.md`
+  - Edge NAT + DHCP pools, Rapid-PVST root/secondary, PortFast/BPDU Guard, storm-control, and port-security.
+
+Real‑world use cases tied to labs
+
+- Small branch with public ISP: NAT overload + DNAT for a small on‑prem app; hairpin to support a shared FQDN internally.
+- Campus loop event: unmanaged switch on a desk creates a loop; BPDU Guard shuts the port and logs; operations notify the user.
+- Developer remote access: SSH `-L` to a private DB via bastion; WireGuard site‑to‑site for CI runners hitting on‑prem registries.
+
 ## Sources and credibility
 
 Primary references you can cite in reviews
@@ -714,6 +1388,16 @@ Primary references you can cite in reviews
 - Cisco campus design guides for hierarchical and routed access models.
 - AWS official documentation for VPC, NAT Gateway, Transit Gateway, and PrivateLink.
 - Canonical Netplan and systemd resolved documentation.
+- OpenSSH manual pages for forwarding: `man ssh`, `man ssh_config` (ProxyJump, LocalForward, RemoteForward).
+- nftables quickstart and wiki: https://wiki.nftables.org/
+- NGINX reverse proxy docs and WebSocket proxying.
+- DHCP snooping and option 82 vendor guides; ISC Kea/ISC DHCP documentation.
+- WireGuard documentation: https://www.wireguard.com/ and `man wg-quick`.
+- OpenVPN community docs: https://openvpn.net/community-resources/how-to/
+- Tailscale docs: https://tailscale.com/kb/ and ZeroTier docs: https://docs.zerotier.com/
+- GPON overview: https://en.wikipedia.org/wiki/Gigabit-capable_Passive_Optical_Network
+- Peering/transit background: https://en.wikipedia.org/wiki/Peering and https://www.peeringdb.com/
+- GNS3 docs: https://docs.gns3.com/ (we standardize on GNS3 in this repo).
 
 ---
 

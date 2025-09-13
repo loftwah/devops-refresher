@@ -5,7 +5,7 @@
 The domain for this lab is `aws.deanlofts.xyz`. It has been configured in Cloudflare and Route53.
 
 ```bash
-~/gits/devops-refresher main !2 ?2 ❯ scripts/validate-delegation.sh
+~/gits/devops-refresher main !2 ?2 ❯ aws-labs/scripts/validate-delegation.sh
 [INFO] NS (via 1.1.1.1):\nns-136.awsdns-17.com.
 ns-1412.awsdns-48.org.
 ns-1623.awsdns-10.co.uk.

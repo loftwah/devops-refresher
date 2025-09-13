@@ -1,0 +1,20 @@
+#!/usr/sbin/nft -f
+
+flush ruleset
+
+table ip nat {
+  chain prerouting { type nat hook prerouting priority -100; }
+  chain postrouting { type nat hook postrouting priority 100; }
+}
+
+# Examples (comment/uncomment and adjust to fit the node)
+
+# Masquerade all egress on WAN
+# add rule ip nat postrouting oifname "eth0" masquerade
+
+# DNAT WAN:443 to an internal server
+# add rule ip nat prerouting iifname "eth0" tcp dport 443 dnat to 10.10.20.10:443
+
+# Hairpin inside LAN (replace WAN_IP)
+# add rule ip nat prerouting iifname { "eth1.10", "eth1.20" } ip daddr 198.51.100.10 tcp dport 443 dnat to 10.10.20.10:443
+# add rule ip nat postrouting oifname { "eth1.10", "eth1.20" } ip saddr 10.10.0.0/16 ip daddr 10.10.20.10 masquerade

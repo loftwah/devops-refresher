@@ -27,7 +27,7 @@
 - IAM:
   - Execution role: `AmazonECSTaskExecutionRolePolicy` + read `ssm:GetParameters*` and `secretsmanager:GetSecretValue` for the above paths; KMS `Decrypt` if using CMKs.
   - Task role: grant only what the app calls directly (e.g., S3 bucket access; SSM read only if the app itself fetches SSM at runtime).
-- Script: `scripts/fetch-ssm-env.sh` can export SSM params by path.
+- Script: `aws-labs/scripts/fetch-ssm-env.sh` can export SSM params by path.
 
 ## Alternatives Considered
 

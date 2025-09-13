@@ -1,0 +1,24 @@
+{
+  "name": "gns3-core-ospf-dhcp",
+  "type": "topology",
+  "topology": {
+    "nodes": [
+      { "name": "core",    "node_type": "qemu",  "template": "Linux-FRR",    "id": "REPLACE-UUID-CORE" },
+      { "name": "dist-a",  "node_type": "qemu",  "template": "Linux-FRR",    "id": "REPLACE-UUID-DISTA" },
+      { "name": "dist-b",  "node_type": "qemu",  "template": "Linux-FRR",    "id": "REPLACE-UUID-DISTB" },
+      { "name": "edge-1",  "node_type": "vpcs",  "template": "Linux-Bridge", "id": "REPLACE-UUID-EDGE1" },
+      { "name": "edge-2",  "node_type": "vpcs",  "template": "Linux-Bridge", "id": "REPLACE-UUID-EDGE2" },
+      { "name": "dhcp",    "node_type": "qemu",  "template": "Kea-DHCP",    "id": "REPLACE-UUID-DHCP" },
+      { "name": "internet","node_type": "cloud", "template": "Cloud",       "id": "REPLACE-UUID-CLOUD" }
+    ],
+    "links": [
+      { "nodes": ["internet:eth0", "core:eth0"],  "note": "WAN" },
+      { "nodes": ["core:eth1", "dist-a:eth0"],    "note": "Transit 10.0.1.0/30" },
+      { "nodes": ["core:eth2", "dist-b:eth0"],    "note": "Transit 10.0.2.0/30" },
+      { "nodes": ["dist-a:eth1", "edge-1:eth0"],  "note": "802.1Q trunk VLANs 10,20" },
+      { "nodes": ["dist-b:eth1", "edge-2:eth0"],  "note": "802.1Q trunk VLANs 10,20" },
+      { "nodes": ["core:eth3", "dhcp:eth0"],      "note": "DHCP server" }
+    ]
+  },
+  "notes": "Replace template names with your GNS3 templates. Apply FRR configs and scripts as per README."
+}
