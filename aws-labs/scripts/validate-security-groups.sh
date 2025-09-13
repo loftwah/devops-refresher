@@ -7,7 +7,7 @@ set -Eeuo pipefail
 # - Checks App SG has ingress from ALB SG on any single TCP port and egress all
 
 ROOT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")"/.. && pwd)
-SG_DIR="$ROOT_DIR/aws-labs/07-security-groups"
+SG_DIR="$ROOT_DIR/07-security-groups"
 
 # Basic colored output (respects NO_COLOR and non-TTY)
 if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then

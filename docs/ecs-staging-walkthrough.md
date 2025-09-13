@@ -19,6 +19,13 @@ Goal: Recreate a production-like staging environment for a containerized web app
 - Observability: CloudWatch logs/metrics, dashboards, and alarms (see `aws-labs/16-observability.md`).
 - CI/CD: CodeBuild + CodePipeline (or GitHub Actions) to build/push/deploy.
 
+Illustrations
+
+- ![ECS services overview](../images/ecs-service-overview.png)
+  Service health and rollout status in ECS console.
+- ![Cluster metrics](../images/ecs-metrics.png)
+  Container Insights metrics at the cluster level.
+
 ## Build It Incrementally
 
 1. Backend & scaffolding

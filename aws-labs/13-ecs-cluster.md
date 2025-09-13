@@ -18,6 +18,13 @@ Terraform for this lab lives in `aws-labs/13-ecs-cluster/`.
 - `aws ecs describe-clusters` shows the cluster active.
 - Log group exists with the specified retention.
 
+Screenshots
+
+- ![ECS clusters list](../images/ecs-clusters.png)
+  Cluster `devops-refresher-staging` active with Container Insights enabled.
+- ![ECS metrics overview](../images/ecs-metrics.png)
+  Container Insights metrics for the staging cluster.
+
 ## Hints
 
 - Keep this cluster generic so multiple services can deploy to it (e.g., `app`, `worker`).

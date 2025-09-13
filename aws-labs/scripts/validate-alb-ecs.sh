@@ -8,8 +8,8 @@ set -Eeuo pipefail
 # - ECS service has running tasks
 
 ROOT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")"/.. && pwd)
-ALB_DIR="$ROOT_DIR/aws-labs/12-alb"
-CLUSTER_DIR="$ROOT_DIR/aws-labs/13-ecs-cluster"
+ALB_DIR="$ROOT_DIR/12-alb"
+CLUSTER_DIR="$ROOT_DIR/13-ecs-cluster"
 
 DOMAIN_FQDN="demo-node-app-ecs.aws.deanlofts.xyz"
 CLUSTER_NAME=""
@@ -103,4 +103,3 @@ main() {
 }
 
 main "$@"
-

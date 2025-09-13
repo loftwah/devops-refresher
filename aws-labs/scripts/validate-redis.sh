@@ -7,8 +7,8 @@ set -Eeuo pipefail
 # - Verifies SG allows 6379 from app SG (from Lab 07)
 
 ROOT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")"/.. && pwd)
-REDIS_DIR="$ROOT_DIR/aws-labs/10-elasticache-redis"
-SG_DIR="$ROOT_DIR/aws-labs/07-security-groups"
+REDIS_DIR="$ROOT_DIR/10-elasticache-redis"
+SG_DIR="$ROOT_DIR/07-security-groups"
 
 # Basic colored output (respects NO_COLOR and non-TTY)
 if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then

@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 ROOT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")"/.. && pwd)
-EP_DIR="$ROOT_DIR/aws-labs/02-vpc-endpoints"
+EP_DIR="$ROOT_DIR/02-vpc-endpoints"
 
 # Basic colored output (respects NO_COLOR and non-TTY)
 if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then

@@ -18,6 +18,19 @@ Terraform for this lab lives in `aws-labs/14-ecs-service/`.
 - Service reaches steady state; target group shows healthy targets on `/healthz`.
 - Updating the image tag to a new version rolls tasks without downtime.
 
+Screenshots
+
+- ![ECS services list](../images/ecs-services.png)
+  Service `app` deployed on the staging cluster.
+- ![Service overview](../images/ecs-service-overview.png)
+  Health status, desired vs running count, and events.
+- ![Task definition configuration](../images/ecs-task-configuration.png)
+  Container `app` with awslogs to `/aws/ecs/devops-refresher-staging`.
+- ![Service logs](../images/ecs-service-logs.png)
+  Application logs streamed to CloudWatch.
+- ![Service deployments](../images/ecs-serivce-deployments.png)
+  Rolling deployment history for the service.
+
 ## Hints
 
 - The container name in your task definition must match the name in `imagedefinitions.json` for CodePipeline deployments (`app`).

@@ -2,8 +2,8 @@
 set -Eeuo pipefail
 
 ROOT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")"/.. && pwd)
-BOOTSTRAP_DIR="$ROOT_DIR/aws-labs/00-backend-bootstrap"
-STATE_DIR="$ROOT_DIR/aws-labs/00-backend-terraform-state"
+BOOTSTRAP_DIR="$ROOT_DIR/00-backend-bootstrap"
+STATE_DIR="$ROOT_DIR/00-backend-terraform-state"
 
 # Basic colored output (respects NO_COLOR and non-TTY)
 if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then

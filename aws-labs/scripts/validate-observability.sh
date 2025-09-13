@@ -8,7 +8,8 @@ set -Eeuo pipefail
 # - Confirms CloudWatch Logs metric filter for ERROR exists
 
 ROOT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")"/.. && pwd)
-OBS_DIR="$ROOT_DIR/aws-labs/16-observability"
+# This script lives in aws-labs/scripts; ROOT_DIR resolves to aws-labs
+OBS_DIR="$ROOT_DIR/16-observability"
 
 # Colors (respect NO_COLOR and non-TTY)
 if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
@@ -138,6 +139,7 @@ check_alarms_exist() {
 
 main() {
   require aws
+  info "Validating Observability (CloudWatch + SNS)"
   parse_args "$@"
   discover_defaults
   set_expected_names
@@ -149,4 +151,3 @@ main() {
 }
 
 main "$@"
-

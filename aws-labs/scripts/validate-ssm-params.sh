@@ -6,7 +6,7 @@ set -Eeuo pipefail
 # - Optionally checks DB_PASS secret exists
 
 ROOT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")"/.. && pwd)
-SSM_DIR="$ROOT_DIR/aws-labs/11-parameter-store"
+SSM_DIR="$ROOT_DIR/11-parameter-store"
 
 # Basic colored output (respects NO_COLOR and non-TTY)
 if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then

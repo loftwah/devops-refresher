@@ -11,6 +11,19 @@
 3. CodePipeline: Source (GitHub via Connection) → Build → Approval → Deploy (ECS deploy action reads `imagedefinitions.json`).
 4. Manual approval stage required before deploy to staging.
 
+Screenshots
+
+- ![GitHub → AWS connection](../images/github-aws-connector.png)
+  GitHub CodeConnections setup in AWS Console.
+- ![CodePipeline GitHub connection](../images/codepipeline-github-connection.png)
+  CodePipeline using the GitHub Connection ARN.
+- ![CodePipeline connection details](../images/codepipeline-github-connection-2.png)
+  Connection authorized to a single repository.
+- ![Manual approval stage](../images/codepipeline-manual-approval.png)
+  Manual Approval gate before ECS Deploy.
+- ![Pipeline building](../images/codepipeline-building.png)
+  Pipeline running Build → Deploy.
+
 ## Acceptance Criteria
 
 - Commit triggers build; pipeline pushes image and updates ECS task definition after approval.

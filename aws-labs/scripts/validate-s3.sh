@@ -6,7 +6,7 @@ set -Eeuo pipefail
 # - Check bucket exists, versioning enabled, public access block enabled, default SSE AES256
 
 ROOT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")"/.. && pwd)
-S3_DIR="$ROOT_DIR/aws-labs/08-s3"
+S3_DIR="$ROOT_DIR/08-s3"
 
 # Basic colored output (respects NO_COLOR and non-TTY)
 if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
