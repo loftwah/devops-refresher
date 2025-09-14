@@ -55,5 +55,5 @@ variable "manage_lbc" {
 variable "manage_externaldns" {
   description = "If true, install ExternalDNS via Helm"
   type        = bool
-  default     = false
+  default     = true
 }

@@ -222,8 +222,7 @@ resource "helm_release" "external_dns" {
 
   depends_on = [
     aws_iam_role_policy_attachment.externaldns_attach,
-    helm_release.aws_load_balancer_controller[0],
-    null_resource.external_dns_cleanup
+    helm_release.aws_load_balancer_controller[0]
   ]
 
   set = [
@@ -236,28 +235,4 @@ resource "helm_release" "external_dns" {
     { name = "serviceAccount.name", value = var.externaldns_service_account },
     { name = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn", value = aws_iam_role.externaldns.arn }
   ]
-}
-
-# Ensure any pre-existing external-dns Helm release is removed so Terraform can manage it
-resource "null_resource" "external_dns_cleanup" {
-  count = (var.manage_externaldns || var.manage_k8s) ? 1 : 0
-  triggers = {
-    initial = "true"
-  }
-  provisioner "local-exec" {
-    interpreter = ["/bin/bash", "-c"]
-    command     = <<EOT
-set -euo pipefail
-NS="${var.externaldns_namespace}"
-if command -v helm >/dev/null 2>&1; then
-  if helm -n "$NS" ls -q | grep -qx external-dns; then
-    helm -n "$NS" uninstall external-dns || true
-  fi
-fi
-if command -v kubectl >/dev/null 2>&1; then
-  kubectl -n "$NS" delete secret -l owner=helm,name=external-dns --ignore-not-found
-  kubectl -n "$NS" delete configmap -l owner=helm,name=external-dns --ignore-not-found
-fi
-EOT
-  }
 }

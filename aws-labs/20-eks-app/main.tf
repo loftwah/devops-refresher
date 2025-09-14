@@ -55,18 +55,3 @@ output "ingress_hostname" {
   description = "ALB DNS name for the app ingress"
   value       = try(data.kubernetes_ingress_v1.demo.status[0].load_balancer[0].ingress[0].hostname, null)
 }
-
-# Auto-create Route53 record pointing friendly host to the Ingress hostname
-resource "aws_route53_record" "app_cname" {
-  zone_id = data.terraform_remote_state.alb.outputs.zone_id
-  name    = var.host
-  type    = "CNAME"
-  ttl     = 60
-  # Use a safe placeholder if hostname is not ready yet; will update on next apply
-  records = [
-    try(
-      data.kubernetes_ingress_v1.demo.status[0].load_balancer[0].ingress[0].hostname,
-      "example.com"
-    )
-  ]
-}
