@@ -210,6 +210,17 @@ resource "helm_release" "aws_load_balancer_controller" {
   ]
 }
 
+# Ensure an IngressClass named "alb" exists so the controller reconciles
+resource "kubernetes_ingress_class_v1" "alb" {
+  metadata {
+    name = "alb"
+  }
+  spec {
+    controller = "ingress.k8s.aws/alb"
+  }
+  depends_on = [helm_release.aws_load_balancer_controller]
+}
+
 resource "helm_release" "external_dns" {
   count            = (var.manage_externaldns || var.manage_k8s) ? 1 : 0
   name             = "external-dns"
