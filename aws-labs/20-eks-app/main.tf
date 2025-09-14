@@ -62,6 +62,11 @@ resource "aws_route53_record" "app_cname" {
   name    = var.host
   type    = "CNAME"
   ttl     = 60
-  # Value is unknown at plan and resolves during apply once the Ingress has an address
-  records = [data.kubernetes_ingress_v1.demo.status[0].load_balancer[0].ingress[0].hostname]
+  # Use a safe placeholder if hostname is not ready yet; will update on next apply
+  records = [
+    try(
+      data.kubernetes_ingress_v1.demo.status[0].load_balancer[0].ingress[0].hostname,
+      "example.com"
+    )
+  ]
 }
