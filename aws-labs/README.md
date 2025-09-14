@@ -46,6 +46,39 @@ Suggested order (high-level):
   - `aws-labs/scripts/validate-eks-external-secrets.sh` – ESO role exists, SA annotation, SecretStores present.
   - `aws-labs/scripts/validate-eks-app.sh` – Deployment/Service/Ingress/ExternalSecret and HTTPS health.
 
+## EKS Quickstart (17 → 20)
+
+Zero‑flag flow to get the app live:
+
+1. Lab 17 – EKS Cluster (once):
+
+```
+terraform -chdir=aws-labs/17-eks-cluster init
+terraform -chdir=aws-labs/17-eks-cluster apply --auto-approve
+```
+
+2. Lab 18 – ALB + IAM + ACM (installs LBC by default):
+
+```
+terraform -chdir=aws-labs/18-eks-alb-externaldns apply --auto-approve
+```
+
+3. Lab 19 – External Secrets (optional now):
+
+```
+terraform -chdir=aws-labs/19-eks-external-secrets apply --auto-approve
+```
+
+4. Lab 20 – App deploy (Terraform):
+
+```
+terraform -chdir=aws-labs/20-eks-app init
+terraform -chdir=aws-labs/20-eks-app apply --auto-approve
+terraform -chdir=aws-labs/20-eks-app output -raw ingress_hostname
+```
+
+Kubernetes basics for verification: see `aws-labs/kubernetes/kubectl.md`.
+
 ## Optional/Extras
 
 - CloudFront: `aws-labs/99-cloudfront.md`

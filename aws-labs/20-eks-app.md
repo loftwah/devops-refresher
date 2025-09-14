@@ -1,33 +1,35 @@
-# Lab 20 – EKS App (Helm)
+# Lab 20 – EKS App (Terraform)
 
 ## Objectives
 
-- Deploy the demo app to EKS using the in-repo Helm chart and values.
+- Deploy the demo app to EKS using the in-repo Helm chart, driven by Terraform (no kubectl/helm required).
 - Use External Secrets Operator to source env from SSM/Secrets.
 - Expose via ALB Ingress using the ACM certificate from Lab 18.
 
-## Steps
+## Steps (zero flags)
 
-1. Ensure controllers are installed (LBC, ExternalDNS, ESO) and SecretStores applied.
-
-2. Deploy app with staging values:
+1. Apply lab 18 (ALB + IAM + ACM; LBC installs by default):
 
 ```
-helm upgrade --install demo aws-labs/kubernetes/helm/demo-app \
-  -n demo --create-namespace \
-  -f aws-labs/kubernetes/helm/demo-app/values-eks-staging-app.yaml \
-  --set ingress.certificateArn=$(cd aws-labs/18-eks-alb-externaldns && terraform output -raw certificate_arn)
+terraform -chdir=aws-labs/18-eks-alb-externaldns apply --auto-approve
 ```
 
-3. Verify:
+2. Deploy the app via Terraform:
 
-- `kubectl get externalsecret -A` shows synced.
-- `kubectl -n demo get ingress demo -o wide` shows ALB address.
-- `curl -sSI https://demo-node-app-eks.aws.deanlofts.xyz/healthz` returns 200.
+```
+terraform -chdir=aws-labs/20-eks-app init
+terraform -chdir=aws-labs/20-eks-app apply --auto-approve
+terraform -chdir=aws-labs/20-eks-app output -raw ingress_hostname
+```
+
+That deploys image `139294524816.dkr.ecr.ap-southeast-2.amazonaws.com/demo-node-app:staging`, enables an ALB Ingress with the ACM cert from lab 18, and prints the ALB DNS.
+
+If ExternalDNS is installed, `demo-node-app-eks.aws.deanlofts.xyz` will resolve automatically; otherwise, hit the ALB hostname directly.
 
 Notes:
 
-- Security Groups for Pods: apply `aws-labs/kubernetes/manifests/sgp-app.yml` once you replace the placeholder SG ID with the `app_sg_id` output from Lab 07.
+- Security Groups for Pods: apply `aws-labs/kubernetes/manifests/sgp-app.yml` (replace placeholder SG) if you enable SGP.
+- External Secrets: disabled by default in this lab; enable later by setting `enable_externalsecrets=true` in `aws-labs/20-eks-app/variables.tf` and re-applying.
 
 ## Validation
 
