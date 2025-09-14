@@ -34,6 +34,7 @@ resource "helm_release" "demo_app" {
       { name = "image.tag", value = var.image_tag },
       { name = "containerPort", value = "3000" },
       { name = "service.port", value = "3000" },
+      { name = "ingress.className", value = "alb" },
       { name = "ingress.enabled", value = var.ingress_enabled ? "true" : "false" },
       { name = "ingress.host", value = var.host },
       { name = "externalSecrets.enabled", value = var.enable_externalsecrets ? "true" : "false" }
@@ -53,4 +54,14 @@ data "kubernetes_ingress_v1" "demo" {
 output "ingress_hostname" {
   description = "ALB DNS name for the app ingress"
   value       = try(data.kubernetes_ingress_v1.demo.status[0].load_balancer[0].ingress[0].hostname, null)
+}
+
+# Auto-create Route53 record pointing friendly host to the Ingress hostname
+resource "aws_route53_record" "app_cname" {
+  zone_id = data.terraform_remote_state.alb.outputs.zone_id
+  name    = var.host
+  type    = "CNAME"
+  ttl     = 60
+  # Value is unknown at plan and resolves during apply once the Ingress has an address
+  records = [data.kubernetes_ingress_v1.demo.status[0].load_balancer[0].ingress[0].hostname]
 }
