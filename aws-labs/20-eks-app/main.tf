@@ -25,20 +25,26 @@ resource "helm_release" "demo_app" {
   namespace        = var.namespace
   create_namespace = true
   chart            = "${path.root}/../kubernetes/helm/demo-app"
+  timeout          = 900
+  wait             = true
 
   set = concat(
     [
-      { name = "image.tag",               value = var.image_tag },
-      { name = "ingress.host",            value = var.host },
-      { name = "externalSecrets.enabled",  value = var.enable_externalsecrets ? "true" : "false" }
+      { name = "image.repository", value = var.image_repository },
+      { name = "image.tag", value = var.image_tag },
+      { name = "containerPort", value = "3000" },
+      { name = "service.port", value = "3000" },
+      { name = "ingress.enabled", value = var.ingress_enabled ? "true" : "false" },
+      { name = "ingress.host", value = var.host },
+      { name = "externalSecrets.enabled", value = var.enable_externalsecrets ? "true" : "false" }
     ],
-    local.cert_arn != null ? [ { name = "ingress.certificateArn", value = local.cert_arn } ] : []
+    local.cert_arn != null ? [{ name = "ingress.certificateArn", value = local.cert_arn }] : []
   )
 }
 
 data "kubernetes_ingress_v1" "demo" {
   metadata {
-    name      = var.release_name
+    name      = "${var.release_name}-demo-app"
     namespace = var.namespace
   }
   depends_on = [helm_release.demo_app]
