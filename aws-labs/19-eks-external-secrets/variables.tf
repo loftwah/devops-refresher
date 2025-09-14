@@ -46,5 +46,5 @@ variable "role_name" {
 variable "manage_k8s" {
   description = "If true, Terraform installs ESO via Helm and applies ClusterSecretStores"
   type        = bool
-  default     = false
+  default     = true
 }

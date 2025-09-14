@@ -99,7 +99,7 @@ resource "aws_iam_policy" "lbc" {
 {
   "Version": "2012-10-17",
   "Statement": [
-    {"Effect": "Allow","Action": ["iam:CreateServiceLinkedRole","ec2:DescribeAccountAttributes","ec2:DescribeAddresses","ec2:DescribeAvailabilityZones","ec2:DescribeInternetGateways","ec2:DescribeVpcs","ec2:DescribeVpcPeeringConnections","ec2:DescribeSubnets","ec2:DescribeSecurityGroups","ec2:DescribeInstances","ec2:DescribeNetworkInterfaces","ec2:DescribeTags","ec2:GetCoipPoolUsage","ec2:DescribeCoipPools","elasticloadbalancing:DescribeLoadBalancers","elasticloadbalancing:DescribeLoadBalancerAttributes","elasticloadbalancing:DescribeListeners","elasticloadbalancing:DescribeListenerCertificates","elasticloadbalancing:DescribeSSLPolicies","elasticloadbalancing:DescribeRules","elasticloadbalancing:DescribeTargetGroups","elasticloadbalancing:DescribeTargetGroupAttributes","elasticloadbalancing:DescribeTargetHealth","elasticloadbalancing:DescribeTags","elasticloadbalancing:AddTags","elasticloadbalancing:RemoveTags","elasticloadbalancing:AddListenerCertificates","elasticloadbalancing:RemoveListenerCertificates","elasticloadbalancing:ModifyLoadBalancerAttributes","elasticloadbalancing:SetIpAddressType","elasticloadbalancing:SetSecurityGroups","elasticloadbalancing:SetSubnets","elasticloadbalancing:DeleteLoadBalancer","elasticloadbalancing:CreateLoadBalancer","elasticloadbalancing:CreateTargetGroup","elasticloadbalancing:DeleteTargetGroup","elasticloadbalancing:ModifyTargetGroup","elasticloadbalancing:ModifyTargetGroupAttributes","elasticloadbalancing:RegisterTargets","elasticloadbalancing:DeregisterTargets","elasticloadbalancing:CreateListener","elasticloadbalancing:DeleteListener","elasticloadbalancing:ModifyListener","elasticloadbalancing:AddTags","elasticloadbalancing:RemoveTags"],"Resource": "*"},
+    {"Effect": "Allow","Action": ["iam:CreateServiceLinkedRole","ec2:DescribeAccountAttributes","ec2:DescribeAddresses","ec2:DescribeAvailabilityZones","ec2:DescribeInternetGateways","ec2:DescribeVpcs","ec2:DescribeVpcPeeringConnections","ec2:DescribeSubnets","ec2:DescribeSecurityGroups","ec2:DescribeInstances","ec2:DescribeNetworkInterfaces","ec2:DescribeTags","ec2:GetCoipPoolUsage","ec2:DescribeCoipPools","elasticloadbalancing:DescribeLoadBalancers","elasticloadbalancing:DescribeLoadBalancerAttributes","elasticloadbalancing:DescribeListeners","elasticloadbalancing:DescribeListenerAttributes","elasticloadbalancing:DescribeListenerCertificates","elasticloadbalancing:DescribeSSLPolicies","elasticloadbalancing:DescribeRules","elasticloadbalancing:DescribeTargetGroups","elasticloadbalancing:DescribeTargetGroupAttributes","elasticloadbalancing:DescribeTargetHealth","elasticloadbalancing:DescribeTags","elasticloadbalancing:AddTags","elasticloadbalancing:RemoveTags","elasticloadbalancing:AddListenerCertificates","elasticloadbalancing:RemoveListenerCertificates","elasticloadbalancing:ModifyLoadBalancerAttributes","elasticloadbalancing:SetIpAddressType","elasticloadbalancing:SetSecurityGroups","elasticloadbalancing:SetSubnets","elasticloadbalancing:DeleteLoadBalancer","elasticloadbalancing:CreateLoadBalancer","elasticloadbalancing:CreateTargetGroup","elasticloadbalancing:DeleteTargetGroup","elasticloadbalancing:ModifyTargetGroup","elasticloadbalancing:ModifyTargetGroupAttributes","elasticloadbalancing:RegisterTargets","elasticloadbalancing:DeregisterTargets","elasticloadbalancing:CreateListener","elasticloadbalancing:DeleteListener","elasticloadbalancing:ModifyListener","elasticloadbalancing:AddTags","elasticloadbalancing:RemoveTags"],"Resource": "*"},
     {"Effect": "Allow","Action": ["cognito-idp:DescribeUserPoolClient","acm:ListCertificates","acm:DescribeCertificate","iam:ListServerCertificates","iam:GetServerCertificate","shield:GetSubscriptionState","wafv2:GetWebACL","wafv2:GetWebACLForResource","wafv2:AssociateWebACL","wafv2:DisassociateWebACL","shield:DescribeProtection","shield:CreateProtection","shield:DeleteProtection"],"Resource": "*"},
     {"Effect": "Allow","Action": ["ec2:AuthorizeSecurityGroupIngress","ec2:RevokeSecurityGroupIngress"],"Resource": "*"},
     {"Effect": "Allow","Action": ["ec2:CreateSecurityGroup"],"Resource": "*"},
@@ -108,7 +108,7 @@ resource "aws_iam_policy" "lbc" {
     {"Effect": "Allow","Action": ["ec2:AuthorizeSecurityGroupIngress","ec2:RevokeSecurityGroupIngress","ec2:DeleteSecurityGroup"],"Resource": "*","Condition": {"Null": {"aws:ResourceTag/elbv2.k8s.aws/cluster": "false"}}},
     {"Effect": "Allow","Action": ["elasticloadbalancing:CreateLoadBalancer","elasticloadbalancing:CreateTargetGroup"],"Resource": "*","Condition": {"Null": {"aws:RequestTag/elbv2.k8s.aws/cluster": "false"}}},
     {"Effect": "Allow","Action": ["elasticloadbalancing:AddTags","elasticloadbalancing:RemoveTags","elasticloadbalancing:DeleteLoadBalancer","elasticloadbalancing:ModifyLoadBalancerAttributes","elasticloadbalancing:SetIpAddressType","elasticloadbalancing:SetSecurityGroups","elasticloadbalancing:SetSubnets","elasticloadbalancing:DeleteTargetGroup","elasticloadbalancing:ModifyTargetGroup","elasticloadbalancing:ModifyTargetGroupAttributes"],"Resource": "*","Condition": {"Null": {"aws:ResourceTag/elbv2.k8s.aws/cluster": "false"}}},
-    {"Effect": "Allow","Action": ["elasticloadbalancing:RegisterTargets","elasticloadbalancing:DeregisterTargets","elasticloadbalancing:CreateListener","elasticloadbalancing:DeleteListener","elasticloadbalancing:ModifyListener","elasticloadbalancing:AddListenerCertificates","elasticloadbalancing:RemoveListenerCertificates"],"Resource": "*"},
+    {"Effect": "Allow","Action": ["elasticloadbalancing:RegisterTargets","elasticloadbalancing:DeregisterTargets","elasticloadbalancing:CreateListener","elasticloadbalancing:DeleteListener","elasticloadbalancing:ModifyListener","elasticloadbalancing:AddListenerCertificates","elasticloadbalancing:RemoveListenerCertificates","elasticloadbalancing:CreateRule","elasticloadbalancing:DeleteRule","elasticloadbalancing:ModifyRule","elasticloadbalancing:SetRulePriorities"],"Resource": "*"},
     {"Effect": "Allow","Action": ["iam:CreateServiceLinkedRole"],"Resource": "*","Condition": {"StringEquals": {"iam:AWSServiceName": ["elasticloadbalancing.amazonaws.com","ops.apigateway.amazonaws.com"]}}},
     {"Effect": "Allow","Action": ["ec2:DescribeAddresses","ec2:DescribeNetworkInterfaces","ec2:DescribeVpcs","ec2:DescribeVpcPeeringConnections","ec2:DescribeSubnets","ec2:DescribeSecurityGroups","ec2:DescribeInstances","ec2:DescribeTags","ec2:GetCoipPoolUsage","ec2:DescribeCoipPools"],"Resource": "*"}
   ]
@@ -119,6 +119,12 @@ POLICY
 resource "aws_iam_role_policy_attachment" "lbc_attach" {
   role       = aws_iam_role.lbc.name
   policy_arn = aws_iam_policy.lbc.arn
+}
+
+# Ensure LBC can call all required ELBv2 Describe* APIs
+resource "aws_iam_role_policy_attachment" "lbc_elb_readonly" {
+  role       = aws_iam_role.lbc.name
+  policy_arn = "arn:aws:iam::aws:policy/ElasticLoadBalancingReadOnly"
 }
 
 # IRSA role for ExternalDNS, limited to the hosted zone
@@ -211,15 +217,7 @@ resource "helm_release" "aws_load_balancer_controller" {
 }
 
 # Ensure an IngressClass named "alb" exists so the controller reconciles
-resource "kubernetes_ingress_class_v1" "alb" {
-  metadata {
-    name = "alb"
-  }
-  spec {
-    controller = "ingress.k8s.aws/alb"
-  }
-  depends_on = [helm_release.aws_load_balancer_controller]
-}
+// Do not manage IngressClass; rely on existing cluster-wide "alb" class
 
 resource "helm_release" "external_dns" {
   count            = (var.manage_externaldns || var.manage_k8s) ? 1 : 0
