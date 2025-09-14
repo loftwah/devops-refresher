@@ -22,8 +22,8 @@ Suggested order (high-level):
 - 16 – Observability (CloudWatch logs, metrics, alarms, dashboard)
 - 17 – EKS Cluster (cluster, node group, OIDC, subnet tags)
 - 18 – EKS ALB + ExternalDNS (IRSA roles + ACM)
-- 19 – EKS External Secrets (IRSA + SecretStores)
-- 20 – EKS App (Helm deploy with ESO + ALB)
+- 19 – (Removed) EKS External Secrets (now optional; app injects env directly)
+- 20 – EKS App (Terraform+Helm; direct env injection; ALB; SG ingress managed)
 - 21 – CI/CD for EKS (CodePipeline + CodeBuild Helm deploy)
 
 ## Backend and State
@@ -63,13 +63,7 @@ terraform -chdir=aws-labs/17-eks-cluster apply --auto-approve
 terraform -chdir=aws-labs/18-eks-alb-externaldns apply --auto-approve
 ```
 
-3. Lab 19 – External Secrets (optional now):
-
-```
-terraform -chdir=aws-labs/19-eks-external-secrets apply --auto-approve
-```
-
-4. Lab 20 – App deploy (Terraform):
+3. Lab 20 – App deploy (Terraform):
 
 ```
 terraform -chdir=aws-labs/20-eks-app init
