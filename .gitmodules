@@ -1,0 +1,4 @@
+[submodule "demo-node-app"]
+	path = demo-node-app
+	url = https://github.com/loftwah/demo-node-app.git
+	branch = main

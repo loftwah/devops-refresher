@@ -9,6 +9,29 @@ A concise, hands-on DevOps refresher with AWS labs plus interview-ready study no
 - New to the terms? See `docs/glossary.md` for a repo-specific glossary of acronyms and concepts.
 - Keep labs focused: apply one lab at a time, validate, then proceed. Use the included teardown checklists when cleaning up.
 
+### Submodules
+
+This repo includes the demo app as a Git submodule at `demo-node-app`.
+
+- Clone with submodules:
+
+```
+git clone --recursive https://github.com/loftwah/devops-refresher.git
+```
+
+- Or, after cloning:
+
+```
+git submodule update --init --recursive
+```
+
+When updating the demo app, commit in its own repository and then bump the submodule pointer here:
+
+```
+cd demo-node-app && git pull origin main && cd -
+git add demo-node-app && git commit -m "chore: bump demo app submodule" && git push
+```
+
 ## How Labs Build On Each Other
 
 - State backend → VPC → Endpoints → ECR → IAM/SGs → S3 → RDS → Redis → ALB → ECS Cluster → ECS Service → CI/CD → Observability → (optionally) EKS.
