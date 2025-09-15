@@ -2,11 +2,11 @@
 set -Eeuo pipefail
 
 # eks-deploy-app.sh — deploy the demo app to EKS via the in-repo Helm chart.
-# Uses values from aws-labs/kubernetes/helm/demo-app/values-eks-staging-app.yaml
+# Uses values from aws-labs/kubernetes/helm/demo-app/values.yml
 
 ROOT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")"/.. && pwd)
 CHART_PATH="${ROOT_DIR}/kubernetes/helm/demo-app"
-VALUES_FILE="${ROOT_DIR}/kubernetes/helm/demo-app/values-eks-staging-app.yaml"
+VALUES_FILE="${ROOT_DIR}/kubernetes/helm/demo-app/values.yml"
 NAMESPACE="${NAMESPACE:-demo}"
 RELEASE_NAME="${RELEASE_NAME:-demo}"
 AWS_REGION="${AWS_REGION:-ap-southeast-2}"

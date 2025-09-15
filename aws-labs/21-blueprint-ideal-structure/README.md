@@ -572,7 +572,7 @@ If you follow the above with the resources enumerated, you’ll reproduce the cu
 - Why: Match the ECS deployment from the same image.
 - When: After controllers; after ECR tag exists.
 - How: `helm upgrade --install` with values file plus `--set image.repository`, `--set image.tag`, `--set ingress.certificateArn`.
-- Example values (from labs): `values-eks-staging-app.yaml` with `ingress.host` and optional `externalSecrets.enabled`.
+- Example values (from labs): `values.yml` with `ingress.host` and optional `externalSecrets.enabled`.
 - Validate:
   - `kubectl -n demo rollout status deploy/demo`
   - Banner: “Running on Kubernetes (EKS) with:”

@@ -50,7 +50,7 @@ helm upgrade --install demo aws-labs/kubernetes/helm/demo-app \
 Or use the provided example values for staging:
 
 ```bash
-helm upgrade --install demo aws-labs/kubernetes/helm/demo-app -f aws-labs/kubernetes/helm/demo-app/values-eks-staging.yaml
+helm upgrade --install demo aws-labs/kubernetes/helm/demo-app -f aws-labs/kubernetes/helm/demo-app/values.yml
 ```
 
 Mixing in a single secret key (e.g., DB_PASS from Secrets Manager):
@@ -136,7 +136,7 @@ Examples:
 # Pin by digest and force rollout
 helm upgrade --install demo aws-labs/kubernetes/helm/demo-app \
   -n demo --create-namespace \
-  -f aws-labs/kubernetes/helm/demo-app/values-eks-staging-app.yaml \
+  -f aws-labs/kubernetes/helm/demo-app/values.yml \
   --set image.repository=123456789012.dkr.ecr.ap-southeast-2.amazonaws.com/demo-node-app \
   --set image.tag=$(git rev-parse --short HEAD) \
   --set image.digest=sha256:8ca69f5d690b88c990ca806c713bdb42881cf03205af1353d7286fcf908a38f1 \

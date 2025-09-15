@@ -38,7 +38,7 @@ Outputs:
 - Source: CodeConnections (GitHub) `loftwah/demo-node-app@main`.
 - Build (Deploy): CodeBuild installs `kubectl` and `helm`, waits for `ECR: <git-sha>` tag, discovers the image digest, then runs `helm upgrade --install` against:
   - Chart: `aws-labs/kubernetes/helm/demo-app`
-  - Values: `aws-labs/kubernetes/helm/demo-app/values-eks-staging-app.yaml`
+  - Values: `aws-labs/kubernetes/helm/demo-app/values.yml`
   - Sets `image.repository`, `image.tag` (commit short SHA), `image.digest` (immutable), `image.pullPolicy=Always`, `buildVersion=<git-sha>`, and `ingress.certificateArn` (from Lab 18).
   - Uses `--wait --atomic` to block until rollout completes or fail clearly.
 

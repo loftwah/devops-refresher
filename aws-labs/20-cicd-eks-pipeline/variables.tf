@@ -55,7 +55,7 @@ variable "chart_path" {
 variable "values_file" {
   description = "Values file path"
   type        = string
-  default     = "aws-labs/kubernetes/helm/demo-app/values-eks-staging-app.yaml"
+  default     = "aws-labs/kubernetes/helm/demo-app/values.yml"
 }
 
 variable "ecr_repo_name" {

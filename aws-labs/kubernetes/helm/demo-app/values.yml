@@ -1,0 +1,68 @@
+replicaCount: 1
+
+image:
+  repository: 139294524816.dkr.ecr.ap-southeast-2.amazonaws.com/demo-node-app
+  tag: staging
+  digest: ""
+  pullPolicy: Always
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+podAnnotations: {}
+podLabels: {}
+
+service:
+  type: ClusterIP
+  port: 3000
+
+# Container port exposed by the app
+containerPort: 3000
+
+ingress:
+  enabled: true
+  className: alb
+  host: demo-node-app-eks.aws.deanlofts.xyz
+  annotations: {}
+  certificateArn: ""
+
+resources: {}
+
+nodeSelector: {}
+affinity: {}
+tolerations: []
+
+# Explicit env vars (used when externalSecrets.enabled=false)
+env:
+  - name: DEPLOY_PLATFORM
+    value: eks
+
+# Optional: reference an existing Secret to envFrom
+envSecretName: ""
+
+# External Secrets Operator integration (disabled by pipeline/script unless CRD exists)
+externalSecrets:
+  enabled: true
+  targetSecretName: demo-node-app-env
+  refreshInterval: 1h
+  storeRef:
+    kind: ClusterSecretStore
+    name: aws-parameterstore
+  dataFrom:
+    - extract:
+        key: /devops-refresher/staging/app
+  data: []
+
+# Force rollouts even if tag unchanged
+buildVersion: ""
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
