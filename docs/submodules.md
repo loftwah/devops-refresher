@@ -55,7 +55,7 @@ Tip: We set `.gitmodules` to track `branch = main`, but submodules are still pin
     fetch-depth: 0
 ```
 
-  - Generic shell step:
+- Generic shell step:
 
 ```
 git submodule update --init --recursive
