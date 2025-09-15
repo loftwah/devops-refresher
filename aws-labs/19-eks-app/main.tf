@@ -152,7 +152,7 @@ resource "helm_release" "app" {
   chart        = "${path.root}/../kubernetes/helm/demo-app"
   timeout      = 600
   force_update = true
-  wait         = true
+  wait         = false
 
   values = [
     yamlencode({
