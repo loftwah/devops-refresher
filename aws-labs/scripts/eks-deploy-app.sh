@@ -51,21 +51,25 @@ main() {
   fi
 
   if [[ -z "${IMAGE_TAG:-}" && -z "${IMAGE_DIGEST:-}" ]]; then
-    local repo_from_values tag_from_values ecr_repo_name digest
-    repo_from_values=$(awk -F': ' '/^image:\s*$/{f=1} f&&/^\s{2}repository:/{print $2; exit}' "$VALUES_FILE" | tr -d '"')
-    tag_from_values=$(awk -F': ' '/^image:\s*$/{f=1} f&&/^\s{2}tag:/{print $2; exit}' "$VALUES_FILE" | tr -d '"')
+    local repo_from_values tag_from_values ecr_repo_name digest latest_digest latest_tag t block
+    block=$(sed -n '/^image:[[:space:]]*$/,/^[^[:space:]]/p' "$VALUES_FILE")
+    repo_from_values=$(printf '%s\n' "$block" | grep -E '^[[:space:]]+repository:' | head -1 | sed -E 's/^[^:]+:[[:space:]]*//; s/^"//; s/"$//')
+    tag_from_values=$(printf '%s\n' "$block" | grep -E '^[[:space:]]+tag:' | head -1 | sed -E 's/^[^:]+:[[:space:]]*//; s/^"//; s/"$//')
     if [[ -n "$repo_from_values" ]]; then IMAGE_REPO="$repo_from_values"; fi
-    if [[ -z "${IMAGE_TAG:-}" && -n "$tag_from_values" ]]; then IMAGE_TAG="$tag_from_values"; fi
-    if [[ -n "${IMAGE_REPO:-}" && -n "${IMAGE_TAG:-}" ]]; then
-      ecr_repo_name="${IMAGE_REPO##*/}"
-      digest=$(aws_cli ecr describe-images --repository-name "$ecr_repo_name" --image-ids imageTag="$IMAGE_TAG" --query 'imageDetails[0].imageDigest' --output text 2>/dev/null || echo "")
-      if [[ -n "$digest" && "$digest" != "None" ]]; then
-        IMAGE_DIGEST="$digest"
-        info "Resolved ECR digest for $IMAGE_REPO:$IMAGE_TAG → $IMAGE_DIGEST"
-      else
-        info "Could not resolve digest for $IMAGE_REPO:$IMAGE_TAG; proceeding with tag"
-      fi
+    if [[ -z "${IMAGE_REPO:-}" ]]; then err "image.repository not found in $VALUES_FILE"; exit 1; fi
+    ecr_repo_name="${IMAGE_REPO##*/}"
+    latest_digest=$(aws_cli ecr describe-images --repository-name "$ecr_repo_name" --query 'reverse(sort_by(imageDetails,&imagePushedAt))[0].imageDigest' --output text 2>/dev/null || echo "")
+    latest_tag=""
+    while IFS= read -r t; do
+      if [[ "$t" =~ ^[0-9a-f]{7}$ ]]; then latest_tag="$t"; break; fi
+    done < <(aws_cli ecr describe-images --repository-name "$ecr_repo_name" --query 'reverse(sort_by(imageDetails,&imagePushedAt))[].imageTags[]' --output text 2>/dev/null | tr '\t' '\n')
+    if [[ -n "$latest_tag" ]]; then IMAGE_TAG="$latest_tag"; fi
+    if [[ -n "$latest_digest" && "$latest_digest" != "None" ]]; then IMAGE_DIGEST="$latest_digest"; fi
+    if [[ -z "${IMAGE_DIGEST:-}" && -n "$tag_from_values" ]]; then
+      digest=$(aws_cli ecr describe-images --repository-name "$ecr_repo_name" --image-ids imageTag="$tag_from_values" --query 'imageDetails[0].imageDigest' --output text 2>/dev/null || echo "")
+      if [[ -n "$digest" && "$digest" != "None" ]]; then IMAGE_DIGEST="$digest"; IMAGE_TAG="$tag_from_values"; fi
     fi
+    :
   fi
 
   local set_args=()
