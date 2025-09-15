@@ -158,7 +158,7 @@ Option B — Helm for both (driver and provider)
 - Some teams prefer managing everything via Helm. If you package the provider manifests into a local chart or consume a provider Helm chart, set the service account annotation in values:
 
 ```yaml
-# values.yml (example for provider chart; Helm defaults to values.yaml)
+# values.yml (example for provider chart; Helm defaults to values.yaml; we standardize on .yml and pass -f)
 serviceAccount:
   create: true
   name: secrets-store-csi-driver-provider-aws
@@ -166,7 +166,7 @@ serviceAccount:
     eks.amazonaws.com/role-arn: ${SSCSID_ROLE_ARN}
 ```
 
-Then install with: `helm upgrade --install aws-provider <repo/chart> -n kube-system -f values.yaml`
+Then install with: `helm upgrade --install aws-provider <repo/chart> -n kube-system -f values.yml`
 
 Notes:
 

@@ -34,7 +34,7 @@ Architecture Decisions
 - `aws-labs/kubernetes/manifests/` for raw manifests
   - `kubernetes/policies/` for IAM policies used by controllers
 - YAML extension: use `.yml` across the repo for consistency, except where upstream tools require specific names:
-  - Helm chart files must be `Chart.yaml` and commonly `values.yaml` as the default values file.
+- Helm chart files must be `Chart.yaml`. For values, we standardize on `values.yml` and always pass it explicitly with `-f` for consistency.
   - Other YAML files (templates, manifests, values you pass with `-f`) may use `.yml`.
 
 ## 1. Coding (LeetCode / Interview Prep)
