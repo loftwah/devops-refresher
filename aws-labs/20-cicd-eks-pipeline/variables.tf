@@ -64,6 +64,18 @@ variable "ecr_repo_name" {
   default     = "demo-node-app"
 }
 
+variable "chart_repo_url" {
+  description = "Git URL of repo containing the Helm chart"
+  type        = string
+  default     = "https://github.com/loftwah/devops-refresher.git"
+}
+
+variable "chart_repo_ref" {
+  description = "Git branch or tag to checkout for the charts repo"
+  type        = string
+  default     = "dl/aws-labs-eks"
+}
+
 variable "tags" {
   type = map(string)
   default = {
