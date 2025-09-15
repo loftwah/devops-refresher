@@ -69,7 +69,48 @@ terraform apply -auto-approve
   - `record_name` defaults to `demo-node-app-ecs.aws.deanlofts.xyz`
 - Result: fully non‑interactive applies once prior labs are applied, but you can still override any input.
 
-See also: `docs/decisions/ADR-001-alb-tls-termination.md` for design rationale, tradeoffs (SANs, end‑to‑end TLS), and checklist.
+Related docs: `docs/security-groups.md`, `docs/resource-reference.md`, `docs/decisions/ADR-001-alb-tls-termination.md`
+
+## Why It Matters
+
+- ALB health checks and security groups are the most common causes of “503/Unhealthy targets.” TLS termination, DNS, and listener rules are frequent interview topics and real‑world failure points.
+
+## Mental Model
+
+- Public ALB in public subnets; targets in private subnets.
+- SG flow: Client → ALB SG (80/443) → App SG (container port). ALB needs egress to the targets; targets allow ingress from ALB SG only.
+- Health checks must match the app port/path and return 200s quickly. Cross‑zone load balancing should be on for HA across AZs.
+
+## Verification
+
+```bash
+# Targets and health
+aws elbv2 describe-target-health --target-group-arn <tg-arn> \
+  --query 'TargetHealthDescriptions[].TargetHealth.State'
+
+# Listeners
+aws elbv2 describe-listeners --load-balancer-arn <alb-arn> \
+  --query 'Listeners[].{Port:Port,Protocol:Protocol,DefaultActions:DefaultActions[0].Type}'
+
+# DNS resolution
+nslookup <record_fqdn>
+```
+
+## Troubleshooting
+
+- Unhealthy targets: ensure health check path/port are correct, app responds on container port, and SG rules allow ALB→app.
+- 403/404 via ALB: check listener rules; ensure HTTPS cert matches name and DNS alias points to the ALB.
+- Intermittent 5xx: check target deregistration delay, idle timeout, and application logs.
+
+## Teardown
+
+- Destroy the ECS service first to detach targets, then destroy this ALB stack. Finally remove the DNS record.
+
+## Check Your Understanding
+
+- Why target type `ip` for Fargate vs `instance` for EC2?
+- How do ALB SG and app SG interact to allow traffic while staying least‑privileged?
+- What happens if the health check path returns 301 instead of 200?
 
 ## Cleanup
 
