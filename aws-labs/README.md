@@ -25,6 +25,7 @@ Suggested order (high-level):
 - 19 – (Removed) EKS External Secrets (now optional; app injects env directly)
 - 20 – EKS App (Terraform+Helm; direct env injection; ALB; SG ingress managed)
 - 21 – CI/CD for EKS (CodePipeline + CodeBuild Helm deploy)
+- 22 – Observability (OTel + Logs) [optional]
 
 ## Backend and State
 
@@ -77,6 +78,7 @@ Kubernetes basics for verification: see `aws-labs/kubernetes/kubectl.md`.
 
 - CloudFront: `aws-labs/99-cloudfront.md`
 - Fault labs: `aws-labs/99-fault-labs.md`
+- Observability (OpenTelemetry + Logs): `aws-labs/22-observability-otel/README.md`
 
 As of now, the core AWS lab flow ends at 20 (EKS App). If we add more, we will continue numbering sequentially. Note: Lab 21 adds a separate EKS pipeline to preserve ordering; both pipelines trigger from the same repo/branch.
 

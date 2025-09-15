@@ -6,6 +6,7 @@ A concise, hands-on DevOps refresher with AWS labs plus interview-ready study no
 
 - Start with the AWS labs in order to build a working staging stack. See `aws-labs/README.md` for the suggested sequence and validation scripts.
 - Use the docs for quick references and deeper dives. See `docs/README.md` for an index and `docs/overview.md` for a one-page cheat sheet per lab.
+- New to the terms? See `docs/glossary.md` for a repo-specific glossary of acronyms and concepts.
 - Keep labs focused: apply one lab at a time, validate, then proceed. Use the included teardown checklists when cleaning up.
 
 ## How Labs Build On Each Other

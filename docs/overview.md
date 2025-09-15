@@ -17,6 +17,7 @@
 - 15 ECS CI/CD: CodePipeline to ECS. Verify: pipeline succeeds; task definition updated.
 - 16 Observability: Alarms + dashboard. Verify: dashboard in CW; alarms in OK.
 - 17–21 EKS: Cluster → ALB/ExternalDNS → App → CI/CD. Verify: `kubectl` objects READY; Ingress DNS works.
+- 22 OTel + Logs: OTel Collector gateway, app traces to OTLP, optional Vector→Axiom logs. Verify: Collector receives spans; backend shows traces if configured.
 
 Links
 

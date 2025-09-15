@@ -1,0 +1,116 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: observability
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vector-config
+  namespace: observability
+data:
+  vector.toml: |
+    [sources.kubernetes_logs]
+    type = "kubernetes_logs"
+    # Includes container logs from /var/log/containers
+
+    [transforms.redact]
+    type = "remap"
+    inputs = ["kubernetes_logs"]
+    source = '''
+    .message = encode_json(parse_json!(.message) ?? {"msg": string!(.message)})
+    # Redact common secret patterns
+    .message |= to_string!(.message)
+      |> replace(. , /(?i)authorization: Bearer [A-Za-z0-9._-]+/, "authorization: Bearer [REDACTED]")
+      |> replace(. , /(?i)password\":\"[^\"]+\"/, "password\":\"[REDACTED]\"")
+    '''
+
+    [sinks.axiom]
+    type = "axiom"
+    inputs = ["redact"]
+    token = "${AXIOM_TOKEN}"
+    dataset = "${AXIOM_DATASET}"
+    # Optional: endpoint, org_id via env
+    # endpoint = "${AXIOM_ENDPOINT}"
+    # org_id = "${AXIOM_ORG_ID}"
+    encoding.codec = "json"
+    healthcheck = true
+
+    [sinks.stdout]
+    type = "console"
+    inputs = ["redact"]
+    encoding.codec = "json"
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: vector
+  namespace: observability
+  labels:
+    app: vector
+spec:
+  selector:
+    matchLabels:
+      app: vector
+  template:
+    metadata:
+      labels:
+        app: vector
+    spec:
+      serviceAccountName: vector
+      tolerations:
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/master
+          operator: Exists
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/control-plane
+          operator: Exists
+      containers:
+        - name: vector
+          image: timberio/vector:0.36.0-alpine
+          imagePullPolicy: IfNotPresent
+          args: ["--config", "/etc/vector/vector.toml"]
+          env:
+            - name: AXIOM_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: axiom
+                  key: token
+                  optional: true
+            - name: AXIOM_DATASET
+              value: devops-refresher
+            - name: AXIOM_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: axiom
+                  key: endpoint
+                  optional: true
+            - name: AXIOM_ORG_ID
+              valueFrom:
+                secretKeyRef:
+                  name: axiom
+                  key: org-id
+                  optional: true
+          volumeMounts:
+            - name: varlog
+              mountPath: /var/log
+            - name: varlib
+              mountPath: /var/lib
+            - name: vector-config
+              mountPath: /etc/vector
+      volumes:
+        - name: varlog
+          hostPath:
+            path: /var/log
+        - name: varlib
+          hostPath:
+            path: /var/lib
+        - name: vector-config
+          configMap:
+            name: vector-config
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vector
+  namespace: observability

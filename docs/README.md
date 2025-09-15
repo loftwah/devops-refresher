@@ -1,7 +1,9 @@
 # Documentation Index
 
 - Overview cheat sheet: `docs/overview.md`
+- Glossary of repo terms: `docs/glossary.md`
 - Lab flow and quicklinks: `aws-labs/README.md`
+- Observability stack options: `docs/observability-stack.md`
 
 Core references
 
