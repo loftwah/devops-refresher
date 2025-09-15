@@ -22,6 +22,7 @@ This chart deploys a simple demo app. It supports two config patterns:
 - `externalSecrets.targetSecretName`: the Secret name synced by ESO and used by the pod
 - `externalSecrets.dataFrom` / `externalSecrets.data`: select which params/secrets to sync
 - When `externalSecrets.enabled=false`, use `env` to set explicit key/values
+- `env`: can be used either alone or alongside `externalSecrets.enabled=true` (in which case `env` is merged with `envFrom` Secret content)
 
 ## Quick start
 

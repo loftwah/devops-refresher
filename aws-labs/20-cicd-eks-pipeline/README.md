@@ -41,6 +41,12 @@ Outputs:
   - Values: `aws-labs/kubernetes/helm/demo-app/values-eks-staging-app.yaml`
   - Sets `image.repository`, `image.tag` (commit short SHA), and `ingress.certificateArn` (from Lab 18).
 
+### Platform detection in the app
+
+- The app auto-detects Kubernetes/EKS and updates the homepage banner.
+- Explicit override via `DEPLOY_PLATFORM` (also accepts `RUN_PLATFORM` or `PLATFORM`) takes precedence.
+- This lab’s Helm values set `env` to inject `DEPLOY_PLATFORM=eks` by default.
+
 ## Notes
 
 - Single vs dual pipelines: We prefer a single pipeline that builds once and deploys to both ECS and EKS, but to preserve lab ordering and avoid breaking earlier content, this lab introduces a second pipeline focused on EKS deploy. Future improvement: unify into one.

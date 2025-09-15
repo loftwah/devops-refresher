@@ -100,6 +100,15 @@ See `docs/ecs-exec.md` for full details and validation steps.
 - Config sourcing: `ssm_path_prefix` (default `/devops-refresher/staging/app`), `auto_load_env_from_ssm` (default true), `auto_load_secrets_from_sm` (default true), `secret_keys` (default `["DB_PASS","APP_AUTH_SECRET"]`).
 - Manual overrides: `environment` (list of name/value), `secrets` (list of name/valueFrom).
 
+### Platform detection
+
+- The app auto-detects the orchestrator (ECS/EKS). This service injects `DEPLOY_PLATFORM=ecs` by default so the homepage banner shows ECS.
+- You can override via Terraform on apply:
+
+```bash
+-var 'environment=[{name="DEPLOY_PLATFORM",value="ecs"}]'
+```
+
 Note: If `var.region` is not defined in your variables file, set it explicitly or ensure a default exists; the awslogs driver requires the region.
 
 ## Cleanup

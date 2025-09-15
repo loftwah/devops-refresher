@@ -93,8 +93,17 @@ locals {
     valueFrom = s.arn
   }] : []
 
-  environment_combined = concat(var.environment, local.ssm_env_from_path)
-  secrets_combined     = concat(var.secrets, local.sm_secrets_from_keys)
+  environment_combined = concat(
+    [
+      {
+        name  = "DEPLOY_PLATFORM"
+        value = "ecs"
+      }
+    ],
+    var.environment,
+    local.ssm_env_from_path,
+  )
+  secrets_combined = concat(var.secrets, local.sm_secrets_from_keys)
 }
 
 data "aws_ssm_parameters_by_path" "app" {

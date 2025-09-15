@@ -43,6 +43,9 @@ env: []
 # - name: LOG_LEVEL
 #   value: info
 
+# Optional: reference an existing Secret to envFrom
+envSecretName: ""
+
 # External Secrets Operator integration
 externalSecrets:
   enabled: false
