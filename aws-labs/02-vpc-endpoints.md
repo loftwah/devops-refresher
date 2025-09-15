@@ -2,6 +2,12 @@
 
 Build private connectivity from your private subnets to AWS services so traffic stays inside AWS networks, reducing NAT egress and improving security.
 
+## Optionality (Why optional but recommended)
+
+- Without endpoints, private subnets can still access AWS APIs (S3, ECR, SSM, etc.) via NAT/Internet. Functionally, everything works.
+- We add endpoints to keep traffic on the AWS network, reduce NAT egress costs, enable tighter policies (e.g., `aws:sourceVpce`, Private DNS), and improve resilience when Internet egress is constrained.
+- This lab’s baseline covers a minimal, high‑value set; you can enable additional endpoints only when needed.
+
 ## Decisions (Locked)
 
 - Keep NAT initially; add endpoints now and migrate traffic progressively.

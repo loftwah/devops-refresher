@@ -36,6 +36,11 @@ PREFERRED=(
   validate-delegation.sh
   validate-demo-app-repo.sh
   validate-ecs-exec.sh
+  validate-eks-cluster.sh
+  validate-eks-alb-externaldns.sh
+  validate-eks-external-secrets.sh
+  validate-eks-app.sh
+  validate-eks-cicd.sh
 )
 
 run_one() {

@@ -2,6 +2,8 @@
 
 This document explains the “why and how” behind the VPC stack in `aws-labs/01-vpc` and ties it back to the tag strategy and acceptance criteria.
 
+Related docs: `docs/vpc.md`, `docs/terraform-resource-cheatsheet.md`
+
 ## Goals
 
 - Create a non-default VPC with DNS enabled.
@@ -91,3 +93,63 @@ Optionally enable flow logs:
 ```
 terraform apply -var enable_flow_logs=true
 ```
+
+## Why It Matters
+
+- Most interview/networking issues trace back to routes, SGs vs NACLs, and NAT/east–west access. This VPC is the backbone for every later lab (ALB/ECS/RDS/Redis). Cost trade‑offs (NAT vs endpoints) and AZ spread decisions start here.
+
+## Mental Model
+
+- Public subnets = ingress/egress via IGW; Private subnets = egress via NAT, no direct ingress. Security Groups are stateful per‑ENI; NACLs are stateless per‑subnet and should be left default unless you have a concrete reason.
+- NAT vs VPC Endpoints: NAT carries all Internet egress (billed per hour + GB). Gateway endpoints (S3/DynamoDB) are free; interface endpoints add hourly cost per AZ but let you keep AWS API traffic off the Internet and reduce NAT data charges. Start with one NAT in staging, add endpoints for high‑traffic services, and scale to per‑AZ NAT for production.
+
+## Verification
+
+Console checks
+
+- VPC → Route Tables: Public RT has `0.0.0.0/0 → igw-...`; Private RT has `0.0.0.0/0 → nat-...`.
+- Subnets show the expected AZs and auto‑assign public IPs disabled in private subnets.
+
+CLI examples
+
+```bash
+# List route tables and default routes
+aws ec2 describe-route-tables \
+  --filters Name=vpc-id,Values=<vpc-id> \
+  --query 'RouteTables[].{Name:Tags[?Key==`Name`]|[0].Value,Routes:Routes[?DestinationCidrBlock==`0.0.0.0/0`].GatewayId, Nat:Routes[?DestinationCidrBlock==`0.0.0.0/0`].NatGatewayId}' \
+  --output table
+
+# Any ENIs in the VPC (proxy for active things)
+aws ec2 describe-network-interfaces --filters Name=vpc-id,Values=<vpc-id> \
+  --query 'NetworkInterfaces[].{Id:NetworkInterfaceId,Status:Status,Desc:Description,Subnet:SubnetId}' --output table
+```
+
+Related endpoints lab: `aws-labs/02-vpc-endpoints/README.md`.
+
+## Troubleshooting
+
+- Black hole to AWS APIs from private subnets: ensure NAT is `Available`, private RT points to NAT, and VPC DNS hostnames/support are enabled. If using interface endpoints, ensure Private DNS is enabled and the endpoint SG allows 443 from your app/task ENIs.
+- IMDSv2 on EC2: If you later add EC2, enforce IMDSv2 with `metadata_options { http_tokens = "required" }` and ensure apps use the v2 flow.
+- SG vs NACL: Prefer SGs. NACLs can block return traffic if you add explicit denies. Reset NACLs to default allow/allow when in doubt.
+
+## Teardown
+
+Order matters to avoid orphaned ENIs/EIPs:
+
+1. Destroy downstream stacks first (ECS/EKS, ALB, RDS, Redis, endpoints).
+2. Delete NAT Gateway (releases EIP), then detach/delete IGW.
+3. Delete non‑main route tables and subnets.
+4. Finally destroy the VPC.
+
+If `terraform destroy` fails due to ENIs in use, check:
+
+```bash
+aws ec2 describe-network-interfaces --filters Name=vpc-id,Values=<vpc-id> \
+  --query 'NetworkInterfaces[].{Id:NetworkInterfaceId,Status:Status,Attach:Attachment.InstanceId,Desc:Description}' --output table
+```
+
+## Check Your Understanding
+
+- Why are SGs preferred over NACLs for service‑to‑service controls?
+- When would you add one NAT per AZ vs rely on VPC Endpoints?
+- What breaks if you disable Private DNS on an interface endpoint?

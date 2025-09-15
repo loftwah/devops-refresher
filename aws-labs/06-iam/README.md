@@ -1,185 +1,57 @@
-# Lab 06 – IAM (ECS Roles)
+# Lab 06 – IAM (CI/CD and App Roles)
+
+Related docs: `docs/iam.md`, `docs/runbooks/cicd-ecs-permissions.md`, `docs/decisions/ADR-005-cicd-iam-ownership.md`
 
 ## What Terraform Actually Creates (main.tf)
 
-- `aws_iam_role.ecs_execution` with trust policy for `ecs-tasks.amazonaws.com`.
-- Attachments:
-  - `AmazonECSTaskExecutionRolePolicy` (pull from ECR, write logs, etc.).
-  - Custom policy `aws_iam_policy.ecs_execution_extra` with conditionals:
-    - Optional Secrets Manager read on `var.secrets_path_prefix` (default `/devops-refresher/staging/app/*`) when `var.grant_exec_role_secrets_read = true`.
-    - Optional SSM read on `var.ssm_path_prefix/*` when `var.grant_exec_role_ssm_read = true`.
-    - Optional `kms:Decrypt` when `var.kms_key_arn` is provided.
-- `aws_iam_role.task` (the application’s runtime role) with trust for `ecs-tasks.amazonaws.com`.
-- Conditional S3 least‑priv policy for `s3://<bucket>/app/*`:
-  - When `var.s3_bucket_name` is provided, or auto‑detected from S3 lab remote state, create `aws_iam_policy.task_s3` and attach it to the task role.
-- Optional SSM read for the task role when `var.grant_task_role_ssm_read = true` and `var.ssm_path_prefix` is set.
-- ECS Exec support: attach `AmazonSSMManagedInstanceCore` to BOTH roles to enable SSM channels for `ecs exec`.
-- Outputs: `execution_role_arn`, `task_role_arn`, `task_role_name`.
+- ECS task execution role: pull images from ECR, write logs to CloudWatch; optional KMS decrypt for logs/images.
+- ECS task role: runtime application permissions (S3 prefix, SSM parameters, Secrets Manager read for specific paths, optional RDS IAM auth).
+- CI/CD roles:
+  - CodePipeline role with `iam:PassRole` scoped to the ECS task/execution roles and the minimum `ecs:*` actions needed for deploys.
+  - CodeBuild build role for image build/push (ECR permissions, logs) and deploy role (ECS update-service, EKS describe for Helm where applicable).
+- Outputs: ARNs for execution/task roles and CI/CD roles.
 
-## CI/CD Roles (for Lab 15)
+## Why It Matters
 
-- CodeBuild role: `aws_iam_role.codebuild` with inline policy for logs and ECR push.
-- CodePipeline role: `aws_iam_role.codepipeline` with inline policy:
-  - `codestar-connections:UseConnection` on your GitHub connection ARN.
-  - `codebuild:StartBuild`/`BatchGetBuilds` on CodeBuild projects in this account.
-  - ECS deploy permissions (`ecs:RegisterTaskDefinition`, `ecs:UpdateService`, etc.) and `iam:PassRole`.
-- Outputs:
-  - `codebuild_role_arn`, `codepipeline_role_arn` (consumed by `aws-labs/15-cicd-ecs-pipeline`).
+- Most ECS/EKS deploy failures are IAM misconfigurations: missing `iam:PassRole`, insufficient ECR/Logs, or Secrets/SSM scoping. Clear separation between execution and task roles reduces blast radius.
 
-Note: S3 access to the pipeline artifacts bucket is granted via a bucket policy in Lab 15 to avoid coupling this lab to bucket naming.
+## Mental Model
 
-### Migration Note: Adopting Existing CI/CD Roles
+- Execution role: used by the ECS agent to pull images and push logs. Never grant app data access here.
+- Task role: used by your container. Keep to least‑privilege resources (prefix‑scoped S3, parameter paths, specific secret ARNs).
+- CI roles: grant only the build/deploy actions required. Scope `iam:PassRole` to the exact task/execution roles and constrain via conditions (e.g., `ecs:UpdateService` on specific ARNs).
 
-If the CI/CD roles were created elsewhere (e.g., in Lab 15 before this lab owned them), Terraform will fail here with `EntityAlreadyExists` when trying to create the same role names. Adopt the existing roles into this lab’s state using `terraform import` and then apply.
-
-Symptoms:
-
-- `EntityAlreadyExists: Role with name devops-refresher-codebuild-role already exists` (or the CodePipeline role)
-- Lab 15 shows `Unsupported attribute` for `codebuild_role_arn` / `codepipeline_role_arn` when this lab hasn’t been applied yet.
-
-Fix (copy/paste from aws-labs/06-iam):
+## Verification
 
 ```bash
-terraform init
-terraform import aws_iam_role.codebuild devops-refresher-codebuild-role
-terraform import aws_iam_role_policy.codebuild_inline devops-refresher-codebuild-role:devops-refresher-codebuild
-terraform import aws_iam_role.codepipeline devops-refresher-codepipeline-role
-terraform import aws_iam_role_policy.codepipeline_inline devops-refresher-codepipeline-role:devops-refresher-codepipeline
-terraform validate && terraform apply -auto-approve
+# Quick role sanity
+aws iam get-role --role-name <exec-role-name> --query 'Role.Arn'
+aws iam get-role --role-name <task-role-name> --query 'Role.Arn'
+
+# Check PassRole permissions (pipeline role)
+aws iam simulate-principal-policy \
+  --policy-source-arn arn:aws:iam::<acct>:role/<pipeline-role> \
+  --action-names iam:PassRole ecs:UpdateService \
+  --resource-arns arn:aws:iam::<acct>:role/<exec-role> arn:aws:iam::<acct>:role/<task-role>
+
+# ECR push/pull permissions (build role)
+aws iam simulate-principal-policy \
+  --policy-source-arn arn:aws:iam::<acct>:role/<codebuild-role> \
+  --action-names ecr:GetAuthorizationToken ecr:BatchCheckLayerAvailability ecr:PutImage
 ```
 
-Why this happens and how to avoid it:
+## Troubleshooting
 
-- Decide IAM ownership up front. In these labs, Lab 06 owns CI/CD IAM; Lab 15 consumes ARNs via remote state. Apply Lab 06 before Lab 15.
-- If you must prototype in Lab 15 first, import the created roles here before switching ownership.
+- AccessDenied on deploy: missing or unscoped `iam:PassRole` to ECS; ensure both task and execution roles are allowed and conditionally limited to ECS use.
+- Cannot pull image / no logs: execution role is missing ECR read or CloudWatch Logs write.
+- Secret/parameter fetch fails: task role missing Secrets Manager or SSM path permissions, or KMS `Decrypt` where SSE‑KMS is used.
 
-## Permissions Checklist (Don’t Get Surprised)
+## Teardown
 
-- CodePipeline role (source/build/deploy):
-  - `codestar-connections:UseConnection`: on the GitHub CodeConnections ARN used by the Source stage.
-  - `codebuild:StartBuild`, `codebuild:BatchGetBuilds`: on the CodeBuild project(s) this pipeline triggers.
-  - ECS permissions for deploy: `ecs:ListClusters`, `ecs:DescribeClusters`, `ecs:ListServices`, `ecs:DescribeServices`, `ecs:DescribeTaskDefinition`, `ecs:ListTaskDefinitions`, `ecs:DescribeTasks`, `ecs:DescribeTaskSets`, `ecs:RegisterTaskDefinition`, `ecs:UpdateService`.
-  - `iam:PassRole`: for the ECS task execution/runtime roles that the service uses. Condition now includes both `ecs-tasks.amazonaws.com` and `ecs.amazonaws.com` to cover provider nuances.
-  - S3 artifacts access: provided via the bucket policy in Lab 15 (not here) — requires `s3:GetObject`, `s3:GetObjectVersion`, `s3:PutObject`, and `s3:GetBucketVersioning` on the artifacts bucket and prefix.
+- Ensure no running services reference these roles. Detach inline/managed policies if deletion is blocked; destroy CI stacks before IAM to avoid dependencies.
 
-- CodeBuild role (build image + push to ECR):
-  - CloudWatch Logs: `logs:CreateLogGroup`, `logs:CreateLogStream`, `logs:PutLogEvents`.
-  - ECR push/pull: `ecr:GetAuthorizationToken`, `ecr:BatchCheckLayerAvailability`, `ecr:InitiateLayerUpload`, `ecr:UploadLayerPart`, `ecr:CompleteLayerUpload`, `ecr:PutImage`, `ecr:BatchGetImage`, `ecr:DescribeRepositories`.
-  - S3 artifacts via bucket policy in Lab 15: `s3:GetObject`, `s3:GetObjectVersion` (download input from CodePipeline), and `s3:PutObject` when applicable.
-  - Optional (only if build needs them): `ssm:GetParameter(s)`/`GetParametersByPath` for build-time parameters; KMS `Decrypt` if reading SecureStrings; Secrets Manager `GetSecretValue` if using BuildKit `--secret` sourced from env.
+## Check Your Understanding
 
-- S3 artifacts bucket policy (Lab 15):
-  - Grants BOTH CodePipeline and CodeBuild roles access to `s3:GetObject`, `s3:GetObjectVersion`, `s3:PutObject` on the bucket and prefix.
-  - Grants `s3:GetBucketVersioning` on the bucket to both roles.
-
-## Troubleshooting (Quick Checks)
-
-- DOWNLOAD_SOURCE AccessDenied in CodeBuild:
-  - Verify the artifacts bucket policy includes BOTH principals (CodePipeline and CodeBuild roles) with `s3:GetObject`/`GetObjectVersion`/`PutObject` and `s3:GetBucketVersioning`.
-  - File to check: `aws-labs/15-cicd-ecs-pipeline/main.tf` → `aws_s3_bucket_policy.artifacts_access`.
-
-- ECS Deploy stage says role lacks ECS permissions:
-  - Inspect the CodePipeline role inline policy and confirm actions include `ecs:DescribeClusters`, `ecs:DescribeServices`, `ecs:DescribeTaskDefinition`, `ecs:RegisterTaskDefinition`, `ecs:UpdateService` (plus `DescribeTaskSets`, `ListTaskDefinitions`).
-  - Command:
-    ```bash
-    aws iam get-role-policy \
-      --role-name devops-refresher-codepipeline-role \
-      --policy-name devops-refresher-codepipeline \
-      --query 'PolicyDocument.Statement[].Action'
-    ```
-  - If missing, apply this lab and re-run pipeline.
-
-Automation
-
-- Run the end-to-end CI/CD validation script to perform these checks automatically:
-  ```bash
-  aws-labs/scripts/validate-cicd.sh
-  ```
-- The validator now uses IAM policy simulation to verify ECS actions and PassRole against the actual task roles with both principals (`ecs-tasks.amazonaws.com` and `ecs.amazonaws.com`). This prevents false negatives from URL-encoded policy parsing and catches missing permissions before deploy.
-
-- Region alignment:
-  - CodeConnections ARN region and CodePipeline region must match (here: `ap-southeast-2`).
-  - ECR/ECS resources for this pipeline should be in the same region for simplicity.
-
-- Where defined in this repo:
-  - CodePipeline/CodeBuild roles + inline policies: `aws-labs/06-iam/main.tf:166` and `:215` (search for `codebuild` / `codepipeline`).
-  - S3 bucket policy for pipeline artifacts: `aws-labs/15-cicd-ecs-pipeline/main.tf` (search for `aws_s3_bucket_policy.artifacts_access`).
-  - Source connection ARN default: `aws-labs/06-iam/variables.tf:13` (`connection_arn`).
-
-- Quick verification commands:
-  - Inspect pipeline role inline policy: `aws iam get-role-policy --role-name devops-refresher-codepipeline-role --policy-name devops-refresher-codepipeline`.
-  - Confirm UseConnection present and ARN matches: `grep -i UseConnection` output; check `Resource` equals your connection ARN.
-  - Check CodeBuild can push: run a pipeline build and ensure it pushes both `:staging` and `:<git-sha>` to ECR without AccessDenied.
-
-Key implementation details:
-
-- Remote state is used to auto‑discover the S3 bucket from Lab 08 when `var.s3_bucket_name` is unset, so you don’t need to pass flags.
-- Secrets prefix uses the form `arn:aws:secretsmanager:<region>:<acct>:secret:/devops-refresher/<env>/<service>/*` which matches Secrets Manager’s name pattern with a trailing `-*` generated by AWS. Using `.../*` in the resource string is correct here because the ARN target is a secret name prefix.
-- SSM resources use the path prefix: `arn:aws:ssm:<region>:<acct>:parameter<var.ssm_path_prefix>/*`.
-
-## Variables You Might Care About (variables.tf)
-
-- `s3_bucket_name` (string, default ""): explicitly grant S3 app prefix access; otherwise auto‑detected via remote state.
-- `grant_task_role_ssm_read` (bool, default false) + `ssm_path_prefix` (string): grant runtime SSM read to the task role.
-- `grant_exec_role_ssm_read` (bool, default true): allow execution role to read SSM if you template SecureString values at task start.
-- `grant_exec_role_secrets_read` (bool, default true) + `secrets_path_prefix` (string): allow execution role to read Secrets Manager for ECS `secrets`.
-- `kms_key_arn` (string): optional CMK decrypt.
-
-## Apply
-
-```bash
-cd aws-labs/06-iam
-terraform init
-terraform apply -auto-approve
-
-# Optional overrides
-# -var s3_bucket_name=...                  # override auto-detected bucket from Lab 08
-# -var grant_task_role_ssm_read=true \\     # grant task SSM read if the app fetches SSM at runtime
-#    -var ssm_path_prefix=/devops-refresher/staging/app
-# -var grant_exec_role_secrets_read=false   # tighten if not using ECS secrets at startup
-# -var grant_exec_role_ssm_read=false       # tighten if not pulling SSM via exec role
-```
-
-## How To Consume
-
-- Pass `execution_role_arn` and `task_role_arn` into the ECS service/task definition.
-- If you change IAM, force a new ECS deployment so new tasks pick up role changes:
-
-```bash
-aws --profile devops-sandbox --region ap-southeast-2 ecs update-service \
-  --cluster devops-sandbox \
-  --service app \
-  --force-new-deployment
-```
-
-## ECS Exec requirements
-
-- Both roles include `AmazonSSMManagedInstanceCore` in this lab.
-- Ensure VPC has SSM interface endpoints (`ssm`, `ssmmessages`, `ec2messages`) or NAT egress.
-
-## Verify
-
-```bash
-# Secrets path access example (adjust profile/region as needed)
-aws secretsmanager get-secret-value \
-  --profile devops-sandbox --region ap-southeast-2 \
-  --secret-id /devops-refresher/staging/app/DB_PASS | jq .
-```
-
-## Root Cause & Prevention
-
-- What happened: The CodePipeline Deploy action failed with "The provided role does not have sufficient permissions to access ECS" due to PassRole/ECS permission evaluation mismatches. Our previous validator relied on grepping decoded inline policy text and could misreport when the AWS API returned URL-encoded JSON; additionally, PassRole conditions limited to only `ecs-tasks.amazonaws.com` can fail in certain ECS provider flows.
-- Fix implemented:
-  - Updated `aws-labs/06-iam/main.tf` to allow `iam:PassRole` with `iam:PassedToService` set to either `ecs-tasks.amazonaws.com` or `ecs.amazonaws.com`.
-  - Hardened `aws-labs/scripts/validate-cicd.sh` to use `iam simulate-principal-policy` for ECS actions and PassRole against the real task/execution roles. This catches issues pre-deploy.
-  - Kept least privilege: minimal ECS actions plus scoped PassRole; removed temporary `ecs:*` after verification.
-- How to avoid regressions:
-  - Always run `aws-labs/scripts/validate-cicd.sh` before triggering a release.
-  - Apply Lab 06 (IAM) before Lab 15 (CI/CD). If IAM roles exist already, import them into Lab 06.
-  - Ensure pipeline region and CodeConnections ARN are `ap-southeast-2`.
-
-## Cleanup
-
-```bash
-terraform destroy -auto-approve
-```
+- What are the distinct responsibilities of the execution role vs the task role?
+- How do you safely scope `iam:PassRole` for a pipeline that deploys to ECS?
+- When does the task role need `kms:Decrypt` and on which resources?

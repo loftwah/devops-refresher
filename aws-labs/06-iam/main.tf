@@ -189,8 +189,16 @@ data "aws_iam_policy_document" "codebuild_policy" {
       "ecr:InitiateLayerUpload",
       "ecr:PutImage",
       "ecr:BatchGetImage",
-      "ecr:DescribeRepositories"
+      "ecr:DescribeRepositories",
+      "ecr:DescribeImages"
     ]
+    resources = ["*"]
+  }
+
+  # Allow EKS kubeconfig generation in CodeBuild deploy stages
+  statement {
+    effect    = "Allow"
+    actions   = ["eks:DescribeCluster"]
     resources = ["*"]
   }
 }

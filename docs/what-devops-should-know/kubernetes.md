@@ -259,6 +259,82 @@ spec:
             backend: { service: { name: echo, port: { number: 80 } } }
 ```
 
+---
+
+## Day-2 Operations on EKS (What to Expect)
+
+- EKS Versioning and Upgrades:
+  - Track EKS minor versions and support windows. Aim to run the latest GA minor (>= 1.30 at the time of writing) to avoid extended support costs/limits.
+  - When upgrading the control plane (e.g., 1.30 → 1.31), follow with node group upgrades and then update add‑ons (VPC CNI, CoreDNS, kube‑proxy) to compatible versions.
+  - Controllers (below) should be reviewed and upgraded after minor bumps.
+
+- Controllers to Maintain:
+  - AWS Load Balancer Controller (ALB Ingress): watches Ingress and creates ALBs, listeners and target groups. Keep it current via Helm and verify rollout with `kubectl rollout status`.
+  - ExternalDNS: keeps Route 53 in sync with your Ingress hosts. Upgrade via Helm; ensure the IRSA or Pod Identity permissions scope to your hosted zone.
+  - External Secrets Operator: syncs SSM/Secrets Manager into native K8s Secrets your apps `envFrom`. Upgrade via Helm; keep the SA binding (IRSA/Pod Identity) intact.
+
+- Secrets and Config Patterns:
+  - Non‑secrets → SSM Parameter Store; Secrets → Secrets Manager. ESO composes them into a single Secret (merge pattern) and your Deployment consumes it via `envFrom`.
+  - Rotation: rotate values in Secrets Manager/SSM; ESO re‑syncs on its refresh interval or when forced (delete the synced Secret or toggle the ExternalSecret).
+  - For direct file mounts, use the Secrets Store CSI Driver (and optionally sync into a Secret for `envFrom`).
+
+- Identity for Pods:
+  - Prefer EKS Pod Identity for new clusters (short‑lived credentials brokered by a node agent). Use IRSA where already deployed or when Pod Identity is not supported for your workload type.
+  - Scope permissions narrowly (SSM path prefixes, specific Secrets ARNs, hosted zone IDs) and bind to a single ServiceAccount per controller/app.
+
+- Networking and Egress:
+  - VPC Endpoints are optional but recommended: without them, traffic to AWS APIs exits via NAT/Internet and still works; endpoints keep traffic on the AWS network, reduce NAT egress, and enable Private DNS and `aws:sourceVpce` conditions.
+  - Security Groups for Pods: use with the VPC CNI for tighter east‑west controls (e.g., ALB SG → app SG on the container port only).
+
+- TLS and DNS:
+  - Use ACM DNS‑validated certificates and reference the certificate ARN on the Ingress. ACM auto‑renews as long as DNS records remain correct.
+  - ExternalDNS reconciles Ingress hosts to Route 53 records; keep ServiceAccount permissions scoped to your hosted zone ID(s).
+
+- Validation and Drift Checks:
+  - Maintain lightweight validators (cluster/nodegroup status, controller presence, ESO syncing, Ingress and app health). Run them after changes and on a cadence to catch drift or expiring resources.
+
+---
+
+## Maintenance Timeline (Who does what, and when)
+
+- Platform (cluster/infra owner):
+  - Weekly:
+    - Review controller versions (ALB Controller, ExternalDNS, ESO) and add-on status (VPC CNI/CoreDNS/kube-proxy).
+    - Scan IAM for over-broad policies on IRSA/Pod Identity bindings; prune if needed.
+  - Monthly:
+    - Patch windows for node images: roll a managed node group update (new AMI) with surge/rolling and PodDisruptionBudgets (PDBs).
+    - Validate VPC Endpoint coverage (if using them) and NAT egress trends; adjust to control cost.
+    - Run validators (cluster health, controllers, ESO, app health) and fix drift.
+  - Quarterly:
+    - EKS minor version review; plan in-place upgrade to latest GA (>= 1.30). Order: control plane → add-ons → node groups → controllers.
+    - Security review: upgrade Helm deps, bump base images, refresh IRSA policies to least privilege.
+  - Event-driven:
+    - CVE advisories (kernel/container runtime): roll nodes.
+    - Expiring certs or DNS changes: verify ACM renewals and ExternalDNS records.
+
+- Operations (SRE/on-call):
+  - Daily:
+    - Check dashboards/alerts (Pod restarts, throttling, 5xx, latency, ESO sync failures, ALB target health).
+  - Incident playbooks:
+    - Node drain/cordon, rollout/rollback (`kubectl rollout` / `helm rollback`), scale out (`kubectl scale` / HPA), and PDB awareness to prevent full outage during maintenance.
+
+- Application teams (service owners):
+  - Per release:
+    - Use immutable image tags (e.g., commit SHA). Define liveness/readiness/startup probes; set requests/limits.
+    - Keep Helm chart values in repo; deploy via CI and verify health and SLO dashboards.
+  - Monthly:
+    - Rotate app secrets if applicable; confirm ESO sync and app consumption.
+  - Compatibility:
+    - When platform bumps EKS minor versions, confirm SDK/client compatibility and upgrade service Helm dependencies as needed.
+
+### Upgrade approach (in-place vs. recreate)
+
+- In-place upgrades are standard for EKS minor versions:
+  - Upgrade control plane, then add-ons (VPC CNI/CoreDNS/kube-proxy), then roll managed node groups, then upgrade controllers via Helm.
+  - Use surge/rolling updates with PDBs to avoid downtime; ALB will keep serving healthy targets.
+- Blue/green (new cluster) is reserved for large architectural changes (e.g., VPC refactor, major CNI change, or big version jumps skipping multiple minors). Migrate namespaces/workloads with staged DNS flips.
+- Cluster creation taking ~10 minutes is normal. Do not routinely tear down clusters; keep staging/prod clusters long-lived and maintained. Ephemeral clusters are fine for short-lived dev/test environments.
+
 Apply and verify:
 
 ```bash

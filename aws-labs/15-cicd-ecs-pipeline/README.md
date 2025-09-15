@@ -73,6 +73,12 @@ Notes
 - GitHub user accounts: the connection works the same as orgs, but you must explicitly authorize the single repo in the GitHub App settings (which you’ve done).
 - If you prefer GitHub Actions + OIDC, see `docs/demo-apps.md` for an Actions example; this lab focuses on CodePipeline.
 
+### Platform detection in the app
+
+- The app auto-detects ECS/EKS and updates the homepage banner.
+- Explicit override via `DEPLOY_PLATFORM` (also accepts `RUN_PLATFORM` or `PLATFORM`) takes precedence.
+- This lab’s ECS task injects `DEPLOY_PLATFORM=ecs` by default; you can override via `-var 'environment=[{name="DEPLOY_PLATFORM",value="ecs"}]'`.
+
 Inline Buildspec (Terraform‑managed)
 
 - This lab injects the buildspec inline into the CodeBuild project. Toggle via variables in `aws-labs/15-cicd-ecs-pipeline/variables.tf`:

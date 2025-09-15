@@ -1,6 +1,24 @@
 # Loftwah's DevOps Refresher and Interview Study Guide
 
-This repository is a comprehensive resource for mastering DevOps concepts, preparing for technical interviews, and building hands-on skills with AWS, coding, system design, and more. It’s designed for engineers looking to refresh core DevOps knowledge or ace interviews with practical, real-world applications.
+A concise, hands-on DevOps refresher with AWS labs plus interview-ready study notes.
+
+## How To Use This Repo
+
+- Start with the AWS labs in order to build a working staging stack. See `aws-labs/README.md` for the suggested sequence and validation scripts.
+- Use the docs for quick references and deeper dives. See `docs/README.md` for an index and `docs/overview.md` for a one-page cheat sheet per lab.
+- Keep labs focused: apply one lab at a time, validate, then proceed. Use the included teardown checklists when cleaning up.
+
+## How Labs Build On Each Other
+
+- State backend → VPC → Endpoints → ECR → IAM/SGs → S3 → RDS → Redis → ALB → ECS Cluster → ECS Service → CI/CD → Observability → (optionally) EKS.
+- Each lab exports outputs consumed by the next (for example, VPC subnets → ALB/ECS; RDS endpoint → Parameter Store → app env).
+- The lab overview and flow: `aws-labs/README.md`.
+
+## Region Notes (ap-southeast-2)
+
+- AZ mapping: use two AZs consistently (e.g., `ap-southeast-2a`, `ap-southeast-2b`). The VPC lab pins these via variables so subnet indexes remain deterministic.
+- NAT costs: one NAT Gateway per AZ is ideal for HA; the labs default to a single NAT in staging to reduce cost. VPC Endpoints help cut NAT egress for AWS APIs.
+- SES sandbox: new accounts and regions start in sandbox. You must verify identities and request production access before sending to unverified recipients. Plan for DNS propagation (SPF/DKIM) delays.
 
 Architecture Decisions
 
@@ -12,11 +30,11 @@ Architecture Decisions
 ## Repo Conventions
 
 - Kubernetes assets live under `kubernetes/`:
-  - `kubernetes/helm/` for Helm values and helpers
-  - `kubernetes/manifests/` for raw manifests
+- `aws-labs/kubernetes/helm/` for Helm values and helpers
+- `aws-labs/kubernetes/manifests/` for raw manifests
   - `kubernetes/policies/` for IAM policies used by controllers
 - YAML extension: use `.yml` across the repo for consistency, except where upstream tools require specific names:
-  - Helm chart files must be `Chart.yaml` and commonly `values.yaml` as the default values file.
+- Helm chart files must be `Chart.yaml`. For values, we standardize on `values.yml` and always pass it explicitly with `-f` for consistency.
   - Other YAML files (templates, manifests, values you pass with `-f`) may use `.yml`.
 
 ## 1. Coding (LeetCode / Interview Prep)

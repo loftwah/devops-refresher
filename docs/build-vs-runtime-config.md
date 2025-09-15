@@ -6,6 +6,7 @@ This guide explains where to put build-time variables (Docker build args) and ru
 
 - Build-time variables: Docker `ARG` passed during `docker build`. Used to influence the image contents (compile assets, select build target, embed version). Not available at runtime. Do not use for secrets.
 - Runtime variables: Container `environment` and `secrets` in the orchestrator (ECS/EKS). Used by the app process at startup and during execution. Use `secrets` for sensitive values from SSM/Secrets Manager.
+- Platform flag: The app auto-detects the orchestrator (ECS/EKS) at runtime. You can hard-override with `DEPLOY_PLATFORM` (also accepts `RUN_PLATFORM` or `PLATFORM`).
 
 ## Where They Go In This Repo
 
@@ -19,7 +20,12 @@ This guide explains where to put build-time variables (Docker build args) and ru
   - Secrets: prefer `container_definitions.secrets` for sensitive values; source from SSM Parameter Store or Secrets Manager. The task role already has SSM read access for `/devops-refresher/staging/*` at `aws-labs/05-ecs/main.tf:116`.
   - Variables: tweak defaults like app port and healthcheck in `aws-labs/05-ecs/variables.tf`.
 
-Example secrets block for ECS (add alongside `environment` in `aws-labs/05-ecs/main.tf`):
+Default platform flag on ECS
+
+- The ECS task definition now injects `DEPLOY_PLATFORM=ecs` by default in `aws-labs/14-ecs-service/main.tf`.
+- You can still override via `-var 'environment=[{name="DEPLOY_PLATFORM",value="ecs"}]'`.
+
+Example secrets block for ECS (add alongside `environment` in `aws-labs/14-ecs-service/main.tf`):
 
 ```hcl
 secrets = [

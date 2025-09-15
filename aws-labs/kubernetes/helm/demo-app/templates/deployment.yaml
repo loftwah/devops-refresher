@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "demo-app.fullname" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "demo-app.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "demo-app.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "demo-app.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+{{- with .Values.podLabels }}
+{{ toYaml . | indent 8 }}
+{{- end }}
+{{- if or .Values.podAnnotations .Values.buildVersion }}
+      annotations:
+{{- with .Values.podAnnotations }}
+{{ toYaml . | indent 8 }}
+{{- end }}
+{{- if .Values.buildVersion }}
+        rollme/buildVersion: "{{ .Values.buildVersion }}"
+{{- end }}
+{{- end }}
+    spec:
+      serviceAccountName: {{ include "demo-app.serviceAccountName" . }}
+      containers:
+        - name: app
+{{- if .Values.image.digest }}
+          image: "{{ .Values.image.repository }}@{{ .Values.image.digest }}"
+{{- else }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+{{- end }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.containerPort }}
+              protocol: TCP
+{{- if .Values.externalSecrets.enabled }}
+          envFrom:
+            - secretRef:
+                name: {{ .Values.externalSecrets.targetSecretName }}
+{{- with .Values.env }}
+          env:
+{{ toYaml . | indent 12 }}
+{{- end }}
+{{- else }}
+{{- if .Values.envSecretName }}
+          envFrom:
+            - secretRef:
+                name: {{ .Values.envSecretName }}
+{{- end }}
+{{- with .Values.env }}
+          env:
+{{ toYaml . | indent 12 }}
+{{- end }}
+{{- end }}
+{{- with .Values.resources }}
+          resources:
+{{ toYaml . | indent 12 }}
+{{- end }}
+      nodeSelector:
+{{ toYaml .Values.nodeSelector | indent 8 }}
+      affinity:
+{{ toYaml .Values.affinity | indent 8 }}
+      tolerations:
+{{ toYaml .Values.tolerations | indent 8 }}

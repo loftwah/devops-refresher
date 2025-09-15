@@ -1,0 +1,173 @@
+Cool so we have some new directories under interview/
+
+I want to use it for practice/labs similar stuff to what we are doing in this repository. Based on the information in this repository can you generate us some documents to read, and/or practice scenarios or labs, or just any homework to do around these topics? It should focus on DevOps and Australia, but it is a global thing so we should cover everything relevant to that too.
+
+applications - I was gonna cover everything about job applications here, what makes up a good resume, how to search for jobs on linkedin and seek (Australia), and how to tailor your resume to the job description, what makes a good resume, how to form good questions, what we should be asking and considering. That when I ask for something I should start with what I actually want before talking about how I got there (similar to Amazon template, but not so rigid). Even finding the people who got the jobs I wanted to get, or am interested in getting so I can look at their background, skills and what they actually do so I can study and emulate it.
+
+behaviour - star, not sure really here so you guide what we need to do?
+
+coding - this is obvious and simple, and we would do mock coding interviews, which I assume would be questions and maybe walking through random leetcode, and problem solving
+
+mock-interview - this would be the same but a full end to end interview for different roles, maybe with job description, company name, and any info we can get to come up with realistic interview scenarios. I guess this would cover all of the directories we have?
+
+system-design - similar to coding, but with a focus on system-design
+ChatGPT said:
+
+That’s a solid structure. Let me refine and flesh out each category with what you’d ideally cover, so you’ve got a complete interview prep framework.
+
+1. Applications
+
+Focus: getting in the door
+
+Resumes
+
+Principles of a good resume (impact-driven, concise, tailored to job description).
+
+How to highlight achievements with metrics.
+
+ATS-friendly formatting (especially for LinkedIn/Seek).
+
+Job Search
+
+Where to look: LinkedIn, Seek (AU focus), niche boards (Stack Overflow, GitHub Jobs, etc.).
+
+Networking: reaching out to people in roles you want, informational interviews.
+
+Following companies and recruiters.
+
+Tailoring
+
+Matching resume & cover letter keywords to JD.
+
+Customising “About Me” sections on LinkedIn.
+
+Strategic Research
+
+Studying backgrounds of people in roles you want (skills, certs, career path).
+
+Reverse-engineering job requirements → learning roadmap.
+
+Questions to Ask
+
+About role, team, growth, culture, tech stack.
+
+Framework: Start with what you want, then back it up (your Amazon-style idea works here).
+
+2. Behavioural
+
+Focus: storytelling, self-awareness, alignment with company values
+
+Frameworks
+
+STAR (Situation, Task, Action, Result).
+
+SOAR (Situation, Obstacle, Action, Result) for challenges.
+
+CAR (Challenge, Action, Result) for concise answers.
+
+Preparation
+
+List your top 5–7 stories: achievements, leadership, conflict resolution, failures, learning moments.
+
+Align each story with common interview themes: teamwork, leadership, ownership, problem-solving, adaptability, conflict, innovation.
+
+Delivery
+
+Practise being concise (2–3 mins per answer).
+
+Avoid rambling — cut to the impact.
+
+Layer in reflection: “What I learned from this was…”.
+
+Mock Behaviourals
+
+Run through practice questions: “Tell me about a time you disagreed with a team member,” “Tell me about your biggest failure,” “Why do you want this role?”.
+
+3. Coding
+
+Focus: problem solving under pressure
+
+Leetcode-style Prep
+
+Arrays, strings, linked lists, trees, graphs, DP, recursion.
+
+Complexity analysis (Big-O).
+
+Framework for Problem Solving
+
+Restate problem in your own words.
+
+Think out loud, clarify edge cases.
+
+Start with brute force, then optimise.
+
+Mock Coding Interviews
+
+Walk through Leetcode/HackerRank problems.
+
+Whiteboard-style explanation or pair coding.
+
+Use common interview languages (Python, Java, Go, Ruby — depending on role).
+
+4. System Design
+
+Focus: high-level and low-level architecture
+
+Core Concepts
+
+Scalability, availability, latency, consistency.
+
+Caching, sharding, replication, load balancing.
+
+Databases: SQL vs NoSQL, trade-offs.
+
+Message queues, event-driven systems.
+
+Framework
+
+Clarify requirements.
+
+Define system constraints (scale, users, latency, reliability).
+
+High-level diagram.
+
+Drill into core components.
+
+Discuss trade-offs.
+
+Low-Level (OOD)
+
+Class design, design patterns (e.g. Singleton, Observer, Factory).
+
+When to use composition vs inheritance.
+
+Mock System Design Interviews
+
+“Design Twitter,” “Design a URL shortener,” “Design Uber.”
+
+Timeboxed (30–45 mins).
+
+5. Mock Interview
+
+Focus: full practice, realistic scenarios
+
+Format
+
+Start-to-finish: intro → behavioural → coding → system design → Q&A.
+
+Tailored to specific company/role (using JD, company research, Glassdoor reviews).
+
+Cover technical + soft skills in one sitting.
+
+Integration
+
+Coding + system design + behavioural all rolled in.
+
+Feedback session after each mock: clarity, depth, pacing.
+
+This way, each category has a clear role:
+
+Applications = get interviews
+Behavioural = pass cultural/soft skill filter
+Coding/System Design = prove technical chops
+Mock Interview = simulate the real thing
