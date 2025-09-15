@@ -59,9 +59,12 @@ locals {
           - curl -sSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
       pre_build:
         commands:
+          - aws --version
+          - aws sts get-caller-identity
           - ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           - REPO_URI=$${ACCOUNT_ID}.dkr.ecr.$${AWS_REGION}.amazonaws.com/$${ECR_REPO_NAME}
           - GIT_SHA=$(echo $${CODEBUILD_RESOLVED_SOURCE_VERSION} | cut -c1-7)
+          - echo "Describing EKS cluster $CLUSTER_NAME in $AWS_REGION" && aws eks describe-cluster --name "$CLUSTER_NAME" --region "$AWS_REGION" >/dev/null
           - |
             if [[ "$USE_PATH_GUARD" == "true" ]]; then
               if [ -d .git ]; then
