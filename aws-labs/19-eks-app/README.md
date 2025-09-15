@@ -55,5 +55,3 @@ If you previously installed the chart as `demo`, either:
 ```bash
 helm -n demo uninstall demo || true
 ```
-
-
