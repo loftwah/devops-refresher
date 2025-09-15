@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# eks-deploy-app.sh — deploy the demo app to EKS via the in-repo Helm chart.
-# Uses values from aws-labs/kubernetes/helm/demo-app/values.yml
-
 ROOT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")"/.. && pwd)
 CHART_PATH="${ROOT_DIR}/kubernetes/helm/demo-app"
 VALUES_FILE="${ROOT_DIR}/kubernetes/helm/demo-app/values.yml"
@@ -28,8 +25,6 @@ aws_cli() {
 
 main() {
   require aws; require helm; require kubectl
-
-  # Discover cluster/cert from Terraform outputs unless overridden
   local cluster_dir cert_dir cluster_name cert_arn
   cluster_dir="${ROOT_DIR}/17-eks-cluster"
   cert_dir="${ROOT_DIR}/18-eks-alb-externaldns"
@@ -44,11 +39,9 @@ main() {
   fi
   aws_cli eks update-kubeconfig --name "$cluster_name" >/dev/null
 
-  # Derive sensible defaults from CI if not provided
   if [[ -z "${IMAGE_TAG:-}" && -n "${CODEBUILD_RESOLVED_SOURCE_VERSION:-}" ]]; then
     IMAGE_TAG="$(echo "$CODEBUILD_RESOLVED_SOURCE_VERSION" | cut -c1-7)"
   fi
-  # BUILD_VERSION is used to force a rollout via pod-template annotation
   if [[ -z "${BUILD_VERSION:-}" ]]; then
     if [[ -n "${CODEBUILD_RESOLVED_SOURCE_VERSION:-}" ]]; then
       BUILD_VERSION="$(echo "$CODEBUILD_RESOLVED_SOURCE_VERSION" | cut -c1-7)"
@@ -57,7 +50,6 @@ main() {
     fi
   fi
 
-  # If no image provided, resolve repo+tag from values.yml and pin the ECR digest
   if [[ -z "${IMAGE_TAG:-}" && -z "${IMAGE_DIGEST:-}" ]]; then
     local repo_from_values tag_from_values ecr_repo_name digest
     repo_from_values=$(awk -F': ' '/^image:\s*$/{f=1} f&&/^\s{2}repository:/{print $2; exit}' "$VALUES_FILE" | tr -d '"')
@@ -86,12 +78,9 @@ main() {
   if [[ -n "${IMAGE_DIGEST:-}" ]]; then
     set_args+=(--set image.digest="$IMAGE_DIGEST")
   fi
-  # Always pull on EKS and set buildVersion to force a rollout when needed
   set_args+=(--set image.pullPolicy=Always)
   set_args+=(--set buildVersion="$BUILD_VERSION")
   set_args+=(--set ingress.certificateArn="$cert_arn")
-
-  # Auto-disable External Secrets if CRD is missing to mirror pipeline behavior
   if ! kubectl api-resources --api-group=external-secrets.io | grep -q ExternalSecret; then
     info "ExternalSecret CRD not found; disabling externalSecrets in this deploy"
     set_args+=(--set externalSecrets.enabled=false)
