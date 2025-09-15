@@ -11,8 +11,8 @@ set -Eeuo pipefail
 # Defaults
 PROFILE="devops-sandbox"
 REGION="ap-southeast-2"
-ECS_PIPELINE="devops-refresher-app-pipeline"
-EKS_PIPELINE="devops-refresher-eks-pipeline"
+ECS_PIPELINE="devops-refresher-app-ecs-pipeline"
+EKS_PIPELINE="devops-refresher-app-eks-pipeline"
 ONLY=""
 
 # Parse args

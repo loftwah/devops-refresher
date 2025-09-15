@@ -173,7 +173,7 @@ resource "aws_s3_bucket_policy" "artifacts_access" {
 resource "aws_codepipeline" "app" {
   # Ensure the artifacts bucket is fully created and versioned before pipeline validation runs
   depends_on = [aws_s3_bucket_versioning.artifacts]
-  name       = "devops-refresher-app-pipeline"
+  name       = "devops-refresher-app-ecs-pipeline"
   role_arn   = data.terraform_remote_state.iam.outputs.codepipeline_role_arn
 
   artifact_store {

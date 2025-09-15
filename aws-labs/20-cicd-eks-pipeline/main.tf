@@ -121,7 +121,7 @@ resource "aws_codebuild_project" "eks_deploy" {
 }
 
 resource "aws_codepipeline" "eks" {
-  name     = "devops-refresher-eks-pipeline"
+  name     = "devops-refresher-app-eks-pipeline"
   role_arn = data.terraform_remote_state.iam.outputs.codepipeline_role_arn
 
   artifact_store {
@@ -170,6 +170,53 @@ resource "aws_s3_bucket" "artifacts" {
 resource "aws_s3_bucket_versioning" "artifacts" {
   bucket = aws_s3_bucket.artifacts.id
   versioning_configuration { status = "Enabled" }
+}
+
+resource "aws_s3_bucket_policy" "artifacts_access" {
+  bucket = aws_s3_bucket.artifacts.id
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Sid       = "AllowPipelineAccess",
+        Effect    = "Allow",
+        Principal = { AWS = data.terraform_remote_state.iam.outputs.codepipeline_role_arn },
+        Action = [
+          "s3:GetObject",
+          "s3:GetObjectVersion",
+          "s3:PutObject"
+        ],
+        Resource = [
+          "arn:aws:s3:::${aws_s3_bucket.artifacts.id}",
+          "arn:aws:s3:::${aws_s3_bucket.artifacts.id}/*"
+        ]
+      },
+      {
+        Sid       = "AllowCodeBuildAccess",
+        Effect    = "Allow",
+        Principal = { AWS = data.terraform_remote_state.iam.outputs.codebuild_role_arn },
+        Action = [
+          "s3:GetObject",
+          "s3:GetObjectVersion",
+          "s3:PutObject"
+        ],
+        Resource = [
+          "arn:aws:s3:::${aws_s3_bucket.artifacts.id}",
+          "arn:aws:s3:::${aws_s3_bucket.artifacts.id}/*"
+        ]
+      },
+      {
+        Sid    = "AllowGetBucketVersioning",
+        Effect = "Allow",
+        Principal = { AWS = [
+          data.terraform_remote_state.iam.outputs.codepipeline_role_arn,
+          data.terraform_remote_state.iam.outputs.codebuild_role_arn
+        ] },
+        Action   = ["s3:GetBucketVersioning"],
+        Resource = "arn:aws:s3:::${aws_s3_bucket.artifacts.id}"
+      }
+    ]
+  })
 }
 
 output "pipeline_name" { value = aws_codepipeline.eks.name }
