@@ -41,6 +41,10 @@ tolerations: []
 env:
   - name: DEPLOY_PLATFORM
     value: eks
+  - name: RUN_PLATFORM
+    value: eks
+  - name: PLATFORM
+    value: eks
 
 # Optional: reference an existing Secret to envFrom
 envSecretName: ""
