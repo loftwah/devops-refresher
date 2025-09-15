@@ -30,6 +30,7 @@ terraform apply -auto-approve
   - Ingress via ALB, host from `var.host`, and cert from Lab 18
   - `extraEnv: DEPLOY_PLATFORM=eks` so the app banner shows EKS
   - Optional `externalSecrets` block if `enable_externalsecrets=true`
+  - ServiceAccount annotated with IRSA for S3 writes; outputs `app_irsa_role_arn` for reuse by Lab 20
 
 ## Variables
 

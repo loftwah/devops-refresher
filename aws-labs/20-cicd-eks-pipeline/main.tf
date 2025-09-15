@@ -22,9 +22,22 @@ data "terraform_remote_state" "alb_dns_cert" {
   }
 }
 
+data "terraform_remote_state" "eks_app" {
+  backend = "s3"
+  config = {
+    bucket       = "tf-state-139294524816-us-east-1"
+    key          = "staging/eks-app/terraform.tfstate"
+    region       = "us-east-1"
+    profile      = var.aws_profile
+    use_lockfile = true
+    encrypt      = true
+  }
+}
+
 locals {
-  cert_arn            = try(data.terraform_remote_state.alb_dns_cert.outputs.certificate_arn, "")
-  inline_buildspec = <<-YAML
+  cert_arn          = try(data.terraform_remote_state.alb_dns_cert.outputs.certificate_arn, "")
+  app_irsa_role_arn = try(data.terraform_remote_state.eks_app.outputs.app_irsa_role_arn, "")
+  inline_buildspec  = <<-YAML
     version: 0.2
     env:
       variables:
@@ -36,6 +49,7 @@ locals {
         VALUES_FILE: ${var.values_file}
         ECR_REPO_NAME: ${var.ecr_repo_name}
         CERT_ARN: ${local.cert_arn}
+        APP_IRSA_ROLE_ARN: ${local.app_irsa_role_arn}
         USE_PATH_GUARD: "false"   # set to "true" to enable diff-based short-circuit
     phases:
       install:
@@ -80,7 +94,8 @@ locals {
               -f "$VALUES_FILE" \
               --set image.repository="$REPO_URI" \
               --set image.tag="$GIT_SHA" \
-              --set ingress.certificateArn="$CERT_ARN"
+              --set ingress.certificateArn="$CERT_ARN" \
+              --set serviceAccount.annotations."eks\\.amazonaws\\.com/role-arn"="$APP_IRSA_ROLE_ARN"
       post_build:
         commands:
           - kubectl -n "$NAMESPACE" rollout status deploy/"$RELEASE_NAME" --timeout=5m
@@ -124,10 +139,10 @@ resource "aws_codepipeline" "eks" {
       version          = "1"
       output_artifacts = ["source_output"]
       configuration = {
-        ConnectionArn        = var.connection_arn
-        FullRepositoryId     = var.repo_full_name
-        BranchName           = var.branch
-        DetectChanges        = "true"
+        ConnectionArn    = var.connection_arn
+        FullRepositoryId = var.repo_full_name
+        BranchName       = var.branch
+        DetectChanges    = "true"
       }
     }
   }
