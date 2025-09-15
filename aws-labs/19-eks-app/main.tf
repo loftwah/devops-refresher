@@ -75,13 +75,13 @@ locals {
   cert_arn     = try(data.terraform_remote_state.alb_dns_cert.outputs.certificate_arn, "")
   oidc_url     = try(data.terraform_remote_state.eks.outputs.oidc_provider_url, null)
   oidc_arn     = try(data.terraform_remote_state.eks.outputs.oidc_provider_arn, null)
-  db_host  = try(data.terraform_remote_state.rds.outputs.db_host, null)
-  db_port  = try(data.terraform_remote_state.rds.outputs.db_port, null)
-  db_name  = try(data.terraform_remote_state.rds.outputs.db_name, null)
-  db_user  = try(data.terraform_remote_state.rds.outputs.db_user, null)
-  redis_host = try(data.terraform_remote_state.redis.outputs.redis_host, null)
-  redis_port = try(data.terraform_remote_state.redis.outputs.redis_port, null)
-  s3_bucket  = try(data.terraform_remote_state.s3app.outputs.bucket_name, null)
+  db_host      = try(data.terraform_remote_state.rds.outputs.db_host, null)
+  db_port      = try(data.terraform_remote_state.rds.outputs.db_port, null)
+  db_name      = try(data.terraform_remote_state.rds.outputs.db_name, null)
+  db_user      = try(data.terraform_remote_state.rds.outputs.db_user, null)
+  redis_host   = try(data.terraform_remote_state.redis.outputs.redis_host, null)
+  redis_port   = try(data.terraform_remote_state.redis.outputs.redis_port, null)
+  s3_bucket    = try(data.terraform_remote_state.s3app.outputs.bucket_name, null)
 }
 
 data "aws_caller_identity" "current" {}
@@ -110,7 +110,7 @@ resource "aws_iam_role" "app_irsa" {
 }
 
 resource "aws_iam_policy" "app_s3_write" {
-  name   = "eks-app-${var.namespace}-${var.release_name}-s3"
+  name = "eks-app-${var.namespace}-${var.release_name}-s3"
   policy = jsonencode({
     Version = "2012-10-17",
     Statement = [
@@ -146,13 +146,13 @@ data "aws_eks_cluster_auth" "this" {
 }
 
 resource "helm_release" "app" {
-  name       = var.release_name
-  namespace  = var.namespace
-  repository = null
-  chart      = "${path.root}/../kubernetes/helm/demo-app"
-  timeout    = 600
+  name         = var.release_name
+  namespace    = var.namespace
+  repository   = null
+  chart        = "${path.root}/../kubernetes/helm/demo-app"
+  timeout      = 600
   force_update = true
-  wait       = false
+  wait         = false
 
   values = [
     yamlencode({
@@ -192,7 +192,7 @@ resource "helm_release" "app" {
           name = "aws-parameterstore"
         }
         dataFrom = [{ extract = { key = "/devops-refresher/staging/app" } }]
-      } : {
+        } : {
         enabled          = false
         targetSecretName = null
         storeRef         = null
@@ -201,7 +201,7 @@ resource "helm_release" "app" {
       env = (
         var.enable_externalsecrets ? [
           { name = "DEPLOY_PLATFORM", value = "eks" }
-        ] : [
+          ] : [
           { name = "DEPLOY_PLATFORM", value = "eks" },
           { name = "APP_ENV", value = "staging" },
           { name = "PORT", value = "3000" },
@@ -211,7 +211,7 @@ resource "helm_release" "app" {
           { name = "DB_USER", value = tostring(local.db_user) },
           { name = "DB_NAME", value = tostring(local.db_name) },
           { name = "DB_PASS", value = try(one(data.aws_secretsmanager_secret_version.db_pass[*].secret_string), "") },
-          { name = "DB_SSL",  value = "required" },
+          { name = "DB_SSL", value = "required" },
           { name = "REDIS_HOST", value = tostring(local.redis_host) },
           { name = "REDIS_PORT", value = tostring(coalesce(local.redis_port, 6379)) },
           { name = "REDIS_TLS", value = "true" }
