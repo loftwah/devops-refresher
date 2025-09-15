@@ -57,6 +57,25 @@ main() {
     fi
   fi
 
+  # If no image provided, resolve repo+tag from values.yml and pin the ECR digest
+  if [[ -z "${IMAGE_TAG:-}" && -z "${IMAGE_DIGEST:-}" ]]; then
+    local repo_from_values tag_from_values ecr_repo_name digest
+    repo_from_values=$(awk -F': ' '/^image:\s*$/{f=1} f&&/^\s{2}repository:/{print $2; exit}' "$VALUES_FILE" | tr -d '"')
+    tag_from_values=$(awk -F': ' '/^image:\s*$/{f=1} f&&/^\s{2}tag:/{print $2; exit}' "$VALUES_FILE" | tr -d '"')
+    if [[ -n "$repo_from_values" ]]; then IMAGE_REPO="$repo_from_values"; fi
+    if [[ -z "${IMAGE_TAG:-}" && -n "$tag_from_values" ]]; then IMAGE_TAG="$tag_from_values"; fi
+    if [[ -n "${IMAGE_REPO:-}" && -n "${IMAGE_TAG:-}" ]]; then
+      ecr_repo_name="${IMAGE_REPO##*/}"
+      digest=$(aws_cli ecr describe-images --repository-name "$ecr_repo_name" --image-ids imageTag="$IMAGE_TAG" --query 'imageDetails[0].imageDigest' --output text 2>/dev/null || echo "")
+      if [[ -n "$digest" && "$digest" != "None" ]]; then
+        IMAGE_DIGEST="$digest"
+        info "Resolved ECR digest for $IMAGE_REPO:$IMAGE_TAG → $IMAGE_DIGEST"
+      else
+        info "Could not resolve digest for $IMAGE_REPO:$IMAGE_TAG; proceeding with tag"
+      fi
+    fi
+  fi
+
   local set_args=()
   if [[ -n "${IMAGE_REPO:-}" ]]; then
     set_args+=(--set image.repository="$IMAGE_REPO")
