@@ -43,7 +43,7 @@ variable "namespace" {
 variable "release_name" {
   description = "Helm release name"
   type        = string
-  default     = "demo"
+  default     = "demo-eks"
 }
 
 variable "chart_path" {

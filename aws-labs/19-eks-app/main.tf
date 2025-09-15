@@ -152,14 +152,14 @@ resource "helm_release" "app" {
   chart        = "${path.root}/../kubernetes/helm/demo-app"
   timeout      = 600
   force_update = true
-  wait         = false
+  wait         = true
 
   values = [
     yamlencode({
       image = {
         repository = var.image_repository
-        tag        = var.image_tag
-        pullPolicy = "IfNotPresent"
+        digest     = var.image_tag # when set to a sha256 digest; pipeline sets this value
+        pullPolicy = "Always"
       }
       service = {
         type = "ClusterIP"

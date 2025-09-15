@@ -11,9 +11,9 @@ variable "release_name" {
 }
 
 variable "image_tag" {
-  description = "Image tag to deploy"
+  description = "Image digest (sha256:...) to deploy; pipeline sets this"
   type        = string
-  default     = "staging"
+  default     = ""
 }
 
 variable "image_repository" {

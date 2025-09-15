@@ -122,7 +122,6 @@ locals {
               --set fullnameOverride="$RELEASE_NAME" \
               --set externalSecrets.enabled=false \
               --set image.repository="$REPO_URI" \
-              --set image.tag="$GIT_SHA" \
               --set image.digest="$DIGEST" \
               --set image.pullPolicy=Always \
               --set buildVersion="$GIT_SHA" \
