@@ -1,4 +1,4 @@
-# Lab 21 – CI/CD for EKS (Helm via CodePipeline/CodeBuild)
+# Lab 20 – CI/CD for EKS (Helm via CodePipeline/CodeBuild)
 
 ## Objective
 
@@ -24,7 +24,7 @@ aws-labs/scripts/eks-map-aws-auth.sh arn:aws:iam::<acct>:role/devops-refresher-c
 ## Apply
 
 ```
-cd aws-labs/21-cicd-eks-pipeline
+cd aws-labs/20-cicd-eks-pipeline
 terraform init
 terraform apply -auto-approve
 ```
@@ -39,7 +39,7 @@ Outputs:
 - Build (Deploy): CodeBuild installs `kubectl` and `helm`, waits for `ECR: <git-sha>` tag, discovers the image digest, then runs `helm upgrade --install` against:
   - Chart: `aws-labs/kubernetes/helm/demo-app`
   - Values: `aws-labs/kubernetes/helm/demo-app/values.yml`
-  - Sets `image.repository`, `image.tag` (commit short SHA), `image.digest` (immutable), `image.pullPolicy=Always`, `buildVersion=<git-sha>`, and `ingress.certificateArn` (from Lab 18).
+  - Sets `image.repository`, `image.digest` (immutable), `image.pullPolicy=Always`, `buildVersion=<git-sha>`, and `ingress.certificateArn` (from Lab 18). The image tag (commit SHA) is still pushed, but the digest is authoritative for deploys.
   - Uses `--wait --atomic` to block until rollout completes or fail clearly.
 
 ### Why these flags matter (lessons learned)
