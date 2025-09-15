@@ -73,6 +73,8 @@ data "terraform_remote_state" "s3app" {
 locals {
   cluster_name = try(data.terraform_remote_state.eks.outputs.cluster_name, "devops-refresher-staging")
   cert_arn     = try(data.terraform_remote_state.alb_dns_cert.outputs.certificate_arn, "")
+  oidc_url     = try(data.terraform_remote_state.eks.outputs.oidc_provider_url, null)
+  oidc_arn     = try(data.terraform_remote_state.eks.outputs.oidc_provider_arn, null)
   db_host  = try(data.terraform_remote_state.rds.outputs.db_host, null)
   db_port  = try(data.terraform_remote_state.rds.outputs.db_port, null)
   db_name  = try(data.terraform_remote_state.rds.outputs.db_name, null)
@@ -82,6 +84,54 @@ locals {
   s3_bucket  = try(data.terraform_remote_state.s3app.outputs.bucket_name, null)
 }
 
+data "aws_caller_identity" "current" {}
+
+resource "aws_iam_role" "app_irsa" {
+  name = "eks-app-${var.namespace}-${var.release_name}-irsa"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Principal = {
+          Federated = local.oidc_arn
+        },
+        Action = "sts:AssumeRoleWithWebIdentity",
+        Condition = {
+          StringEquals = {
+            "${trimprefix(local.oidc_url, "https://")}:sub" = "system:serviceaccount:${var.namespace}:${var.release_name}-demo-app",
+            "${trimprefix(local.oidc_url, "https://")}:aud" = "sts.amazonaws.com"
+          }
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_policy" "app_s3_write" {
+  name   = "eks-app-${var.namespace}-${var.release_name}-s3"
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Action = [
+          "s3:PutObject",
+          "s3:GetObject"
+        ],
+        Resource = [
+          "arn:aws:s3:::${local.s3_bucket}/app/*"
+        ]
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "app_attach" {
+  role       = aws_iam_role.app_irsa.name
+  policy_arn = aws_iam_policy.app_s3_write.arn
+}
 data "aws_secretsmanager_secret_version" "db_pass" {
   count     = var.enable_externalsecrets ? 0 : 1
   secret_id = try(data.terraform_remote_state.rds.outputs.db_password_secret_arn, "")
@@ -127,6 +177,12 @@ resource "helm_release" "app" {
       }
       podLabels = {
         app = "demo-node-app"
+      }
+      serviceAccount = {
+        create = true
+        annotations = {
+          "eks.amazonaws.com/role-arn" = aws_iam_role.app_irsa.arn
+        }
       }
       externalSecrets = var.enable_externalsecrets ? {
         enabled          = true
