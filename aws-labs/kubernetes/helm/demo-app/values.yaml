@@ -3,6 +3,8 @@ replicaCount: 1
 image:
   repository: public.ecr.aws/docker/library/nginx
   tag: "stable"
+  # Optional: if set, image will be pulled as "<repository>@<digest>"
+  digest: ""
   pullPolicy: IfNotPresent
 
 nameOverride: ""
@@ -65,6 +67,10 @@ externalSecrets:
   #   - secretKey: DB_PASS
   #     remoteRef:
   #       key: /devops-refresher/staging/app/DB_PASS
+
+# Optional build version to force rollouts even when tag is unchanged
+# If set, it is added as a pod-template annotation: rollme/buildVersion
+buildVersion: ""
 
 autoscaling:
   enabled: false

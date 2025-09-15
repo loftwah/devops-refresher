@@ -96,6 +96,8 @@ locals {
               i=$((i+1))
               sleep 10
             done
+            DIGEST=$(aws ecr describe-images --repository-name "$ECR_REPO_NAME" --image-ids imageTag="$GIT_SHA" --query 'imageDetails[0].imageDigest' --output text)
+            echo "Resolved image digest: $DIGEST"
           - aws eks update-kubeconfig --name "$CLUSTER_NAME" --region "$AWS_REGION"
           - helm version && kubectl version --client=true
       build:
@@ -113,7 +115,19 @@ locals {
               CHART_PATH="$tmpdir/$CHART_PATH"
               VALUES_FILE="$tmpdir/$VALUES_FILE"
             fi
-            helm upgrade --install "$RELEASE_NAME" "$CHART_PATH" -n "$NAMESPACE" --create-namespace -f "$VALUES_FILE" --set fullnameOverride="$RELEASE_NAME" --set externalSecrets.enabled=false --set image.repository="$REPO_URI" --set image.tag="$GIT_SHA" --set ingress.certificateArn="$CERT_ARN" --set serviceAccount.annotations."eks\\.amazonaws\\.com/role-arn"="$APP_IRSA_ROLE_ARN"
+            helm upgrade --install "$RELEASE_NAME" "$CHART_PATH" \
+              -n "$NAMESPACE" --create-namespace \
+              -f "$VALUES_FILE" \
+              --wait --atomic --timeout 10m \
+              --set fullnameOverride="$RELEASE_NAME" \
+              --set externalSecrets.enabled=false \
+              --set image.repository="$REPO_URI" \
+              --set image.tag="$GIT_SHA" \
+              --set image.digest="$DIGEST" \
+              --set image.pullPolicy=Always \
+              --set buildVersion="$GIT_SHA" \
+              --set ingress.certificateArn="$CERT_ARN" \
+              --set serviceAccount.annotations."eks\\.amazonaws\\.com/role-arn"="$APP_IRSA_ROLE_ARN"
       post_build:
         commands:
           - kubectl -n "$NAMESPACE" rollout status deploy/"$RELEASE_NAME" --timeout=5m

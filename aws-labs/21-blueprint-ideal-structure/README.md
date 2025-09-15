@@ -105,11 +105,12 @@ Stages:
    - `aws ecs update-service --force-new-deployment`
 4. Deploy EKS (CodeBuild):
    - `aws eks update-kubeconfig`
-   - `helm upgrade --install` with `image.tag=<short>`, `DEPLOY_PLATFORM=eks`
+   - Resolve `DIGEST` for `<short>` tag from ECR
+   - `helm upgrade --install` with `image.tag=<short>`, `image.digest=$DIGEST`, `image.pullPolicy=Always`, `buildVersion=<short>`, `DEPLOY_PLATFORM=eks`, `--wait --atomic`
 
 Ordering & guards:
 
-- EKS waits for ECR image tag to exist
+- EKS waits for ECR image tag to exist and pins the digest
 - Optionally require ECS stage success or a manual approval between stages
 - Optional path guard to run EKS only when k8s paths change
 

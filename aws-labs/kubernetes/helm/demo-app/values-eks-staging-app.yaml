@@ -1,7 +1,7 @@
 image:
   repository: 139294524816.dkr.ecr.ap-southeast-2.amazonaws.com/demo-node-app
   tag: staging
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
 service:
   type: ClusterIP
   port: 3000

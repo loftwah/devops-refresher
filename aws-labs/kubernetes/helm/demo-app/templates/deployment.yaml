@@ -19,15 +19,24 @@ spec:
 {{- with .Values.podLabels }}
 {{ toYaml . | indent 8 }}
 {{- end }}
-{{- with .Values.podAnnotations }}
+{{- if or .Values.podAnnotations .Values.buildVersion }}
       annotations:
+{{- with .Values.podAnnotations }}
 {{ toYaml . | indent 8 }}
+{{- end }}
+{{- if .Values.buildVersion }}
+        rollme/buildVersion: "{{ .Values.buildVersion }}"
+{{- end }}
 {{- end }}
     spec:
       serviceAccountName: {{ include "demo-app.serviceAccountName" . }}
       containers:
         - name: app
+{{- if .Values.image.digest }}
+          image: "{{ .Values.image.repository }}@{{ .Values.image.digest }}"
+{{- else }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+{{- end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: http

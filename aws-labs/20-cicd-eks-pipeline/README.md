@@ -36,10 +36,18 @@ Outputs:
 ## How it works
 
 - Source: CodeConnections (GitHub) `loftwah/demo-node-app@main`.
-- Build (Deploy): CodeBuild installs `kubectl` and `helm`, waits for `ECR: <git-sha>` tag, then runs `helm upgrade --install` against:
+- Build (Deploy): CodeBuild installs `kubectl` and `helm`, waits for `ECR: <git-sha>` tag, discovers the image digest, then runs `helm upgrade --install` against:
   - Chart: `aws-labs/kubernetes/helm/demo-app`
   - Values: `aws-labs/kubernetes/helm/demo-app/values-eks-staging-app.yaml`
-  - Sets `image.repository`, `image.tag` (commit short SHA), and `ingress.certificateArn` (from Lab 18).
+  - Sets `image.repository`, `image.tag` (commit short SHA), `image.digest` (immutable), `image.pullPolicy=Always`, `buildVersion=<git-sha>`, and `ingress.certificateArn` (from Lab 18).
+  - Uses `--wait --atomic` to block until rollout completes or fail clearly.
+
+### Why these flags matter (lessons learned)
+
+- Kubernetes only rolls when the pod template changes. Reusing a mutable tag like `staging` with `IfNotPresent` can silently skip updates.
+- We set `buildVersion` (a pod-template annotation) on every deploy to force a new ReplicaSet even if a human accidentally uses a mutable tag.
+- We pass the immutable `image.digest` so the container reference always changes and exactly matches the built image.
+- We set `image.pullPolicy=Always` in EKS staging values to ensure nodes pull the image on restart.
 
 ### Platform detection in the app
 
@@ -50,5 +58,21 @@ Outputs:
 ## Notes
 
 - Single vs dual pipelines: We prefer a single pipeline that builds once and deploys to both ECS and EKS, but to preserve lab ordering and avoid breaking earlier content, this lab introduces a second pipeline focused on EKS deploy. Future improvement: unify into one.
-- Same repo/branch triggers: Both pipelines will start on each push. The EKS deploy waits for the ECR tag to appear to avoid a race.
+- Same repo/branch triggers: Both pipelines will start on each push. The EKS deploy waits for the ECR tag to appear and reads the digest to avoid a race and ensure immutability.
 - Inline buildspec: Kept in Terraform (inline) for easier reference in this repo, mirroring the style used in earlier labs.
+
+## Manual Deploy Script
+
+For ad-hoc deploys that mirror the pipeline behavior, use the helper script with your lab profile/region:
+
+```
+PROFILE=devops-sandbox AWS_REGION=ap-southeast-2 \
+  ./aws-labs/scripts/eks-deploy-app.sh
+```
+
+Options:
+
+- `IMAGE_TAG` or `IMAGE_DIGEST` to pin the image (digest preferred)
+- `NAMESPACE`, `RELEASE_NAME` to target a different release
+- `CLUSTER_NAME` to override discovery from Lab 17 outputs
+- Uses cluster name from Lab 17 outputs by default; ensure that state exists

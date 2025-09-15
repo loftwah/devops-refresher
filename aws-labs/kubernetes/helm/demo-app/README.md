@@ -122,3 +122,33 @@ serviceAccount:
   - `aws-labs/kubernetes/manifests/externalsecrets-clustersecretstore-secretsmanager.yml`
 - To provision the ESO IRSA role/policy in a lab flow, see: `aws-labs/19-eks-external-secrets/README.md`.
 - If you prefer file mounts, use Secrets Store CSI Driver and sync to a Secret, then `envFrom` that Secret in `templates/deployment.yaml` (similar pattern).
+
+## Immutable deploys that always roll
+
+- Use immutable identifiers on deploy:
+  - Prefer `image.digest` (ECR `sha256:...`). The chart renders `repository@digest` when `image.digest` is set.
+  - Also set `buildVersion` to a unique value (e.g., commit short SHA) so the pod template always changes and triggers a rollout.
+- For EKS staging, set `image.pullPolicy=Always` so nodes pull the image on restart.
+
+Examples:
+
+```bash
+# Pin by digest and force rollout
+helm upgrade --install demo aws-labs/kubernetes/helm/demo-app \
+  -n demo --create-namespace \
+  -f aws-labs/kubernetes/helm/demo-app/values-eks-staging-app.yaml \
+  --set image.repository=123456789012.dkr.ecr.ap-southeast-2.amazonaws.com/demo-node-app \
+  --set image.tag=$(git rev-parse --short HEAD) \
+  --set image.digest=sha256:8ca69f5d690b88c990ca806c713bdb42881cf03205af1353d7286fcf908a38f1 \
+  --set image.pullPolicy=Always \
+  --set buildVersion=$(git rev-parse --short HEAD)
+
+# Minimum (tag only) — still forces rollout via buildVersion
+helm upgrade --install demo aws-labs/kubernetes/helm/demo-app \
+  --set image.repository=... --set image.tag=$(git rev-parse --short HEAD) \
+  --set image.pullPolicy=Always --set buildVersion=$(git rev-parse --short HEAD)
+```
+
+Pitfall to avoid:
+
+- Do not rely on mutable tags like `latest` or `staging` without also changing the pod template. Kubernetes will not roll if the template is unchanged, unlike ECS which can force a new deployment with the same tag.
