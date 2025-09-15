@@ -2,7 +2,7 @@
 
 This chart deploys a simple demo app. It supports two config patterns:
 
-- Explicit `env`: set values in `values.yaml` (good for local/dev)
+- Explicit `env`: set values in `values.yml` (good for local/dev)
 - External Secrets Operator (ESO): source all env from AWS SSM/Secrets Manager without committing them to Git
 
 ## Prereqs
