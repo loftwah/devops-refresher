@@ -11,26 +11,23 @@ A concise, hands-on DevOps refresher with AWS labs plus interview-ready study no
 
 ### Submodules
 
-This repo includes the demo app as a Git submodule at `demo-node-app`.
+This repo includes the real demo application as a Git submodule at `demo-node-app`.
 
-- Clone with submodules:
-
-```
-git clone --recursive https://github.com/loftwah/devops-refresher.git
-```
-
-- Or, after cloning:
+- CI/CD: App deployments build from the `demo-node-app` repository directly (not via submodule). Infra labs do not require submodule init.
+- Local dev: If you want to run or edit the app from this repo, initialize submodules:
 
 ```
 git submodule update --init --recursive
 ```
 
-When updating the demo app, commit in its own repository and then bump the submodule pointer here:
+To bump the submodule pointer after updating the app in its own repo:
 
 ```
 cd demo-node-app && git pull origin main && cd -
 git add demo-node-app && git commit -m "chore: bump demo app submodule" && git push
 ```
+
+See `docs/submodules.md` for a practical guide.
 
 ## How Labs Build On Each Other
 

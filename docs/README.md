@@ -4,6 +4,7 @@
 - Glossary of repo terms: `docs/glossary.md`
 - Lab flow and quicklinks: `aws-labs/README.md`
 - Observability stack options: `docs/observability-stack.md`
+ - Submodules guide: `docs/submodules.md`
 
 Core references
 
