@@ -53,8 +53,6 @@ locals {
         USE_PATH_GUARD: "false"   # set to "true" to enable diff-based short-circuit
     phases:
       install:
-        runtime-versions:
-          docker: 20
         commands:
           - curl -sSL -o /usr/local/bin/kubectl https://s3.us-west-2.amazonaws.com/amazon-eks/1.31.0/2024-08-07/bin/linux/amd64/kubectl
           - chmod +x /usr/local/bin/kubectl
