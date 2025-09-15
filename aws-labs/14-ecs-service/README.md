@@ -2,6 +2,8 @@
 
 ## Objectives
 
+Related docs: `docs/ecs-staging-walkthrough.md`, `docs/ecs-exec.md`
+
 - Deploy the app on ECS Fargate, attach to the ALB target group, and use existing IAM roles.
 
 ## Prerequisites
@@ -68,6 +70,25 @@ Common error
 
 - `CannotPullContainerError: ... demo-node-app:staging: not found` means `:staging` was not pushed to ECR. Push the tag (see above) and re-apply the service.
 
+## Why It Matters
+
+- Most ECS runtime issues trace to role mix-ups (task vs execution), missing log permissions, or networking/endpoint gaps. Understanding roles, logs, and capacity providers prevents common outages and noisy alerts.
+
+## Roles Explained (Task vs Execution)
+
+- Execution role: used by ECS agent to pull images from ECR and publish logs to CloudWatch. Needs ECR read, CloudWatch Logs create/put, and KMS decrypt if your logs/images are KMS-encrypted.
+- Task role: used by your application code at runtime. Grants access to S3, SSM, Secrets Manager, RDS IAM auth, etc. Never mix these responsibilities.
+
+## Logs Troubleshooting
+
+- No logs in CloudWatch: check the execution role has `logs:CreateLogStream` and `logs:PutLogEvents` on the log group; ensure the log group exists and the `awslogs-region` matches.
+- Rate limiting or missing group: pre-create the log group with a retention policy (cluster lab creates `/aws/ecs/devops-refresher-staging` with 30-day retention).
+- Endpoint issues in private subnets: ensure interface endpoints for `logs` are present if you’ve removed NAT. See `aws-labs/02-vpc-endpoints/README.md`.
+
+## Capacity Providers (Overview)
+
+- Fargate capacity providers let you split traffic between `FARGATE` and `FARGATE_SPOT` with a strategy (e.g., 80/20). This lab uses plain Fargate. For cost efficiency, add a default capacity provider strategy on the cluster and reference it here.
+
 ## ECS Exec (Built-in)
 
 - This lab enables ECS Exec via `enable_execute_command = true` in `main.tf`.
@@ -116,6 +137,8 @@ Note: If `var.region` is not defined in your variables file, set it explicitly o
 ```bash
 terraform destroy -auto-approve
 ```
+
+Teardown tip: destroy the service before tearing down the ALB or security groups to avoid dependency errors.
 
 ## Self-test endpoint
 

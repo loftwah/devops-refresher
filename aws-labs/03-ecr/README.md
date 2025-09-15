@@ -136,6 +136,10 @@ Use `outputs.repository_url` in build pipelines (e.g., CodeBuild) to tag and pus
 - On‑push scanning is enabled by default.
 - Lifecycle policy keeps the last `lifecycle_keep_last` images and effectively preserves the `staging` tag.
 
+## Why It Matters
+
+- Unused images accumulate costs; lifecycle policies keep storage tidy. Scan‑on‑push surfaces high‑severity CVEs early. Some advanced scanning features vary by region; ap-southeast-2 supports scan-on-push.
+
 ## Cleanup
 
 This lab sets `force_delete = true` for convenience. To destroy:
@@ -144,11 +148,18 @@ This lab sets `force_delete = true` for convenience. To destroy:
 terraform destroy -auto-approve
 ```
 
+If deletion is blocked, ensure `force_delete=true` or delete all images first.
+
 ## Troubleshooting
 
 - `docker login` fails: ensure the `aws ecr get-login-password` command uses the same region/profile as the repo.
 - Private subnets can’t pull: ensure NAT or ECR interface endpoints are present and DNS support/hostnames are enabled in the VPC.
 - PTC not working: confirm the image path includes your prefix and upstream path (e.g., `dockerhub/library/...`).
+
+## Check Your Understanding
+
+- When would you use ECR Public vs a Pull‑Through Cache?
+- Which role needs permissions to push to ECR, and which to pull at runtime?
 
 ---
 

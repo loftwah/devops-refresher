@@ -43,3 +43,35 @@ terraform apply -auto-approve
 ```bash
 terraform destroy -auto-approve
 ```
+
+## Why It Matters
+
+- Clients silently fail when TLS or AUTH expectations don’t match. Eviction policy determines behavior under memory pressure — crucial for stability.
+
+## Mental Model
+
+- In‑transit encryption (TLS) and AUTH:
+  - With transit encryption enabled, use `rediss://` and a TLS‑capable client.
+  - AUTH can be enabled via user/password on Redis 6+ (Redis ACLs); align app config accordingly.
+- Eviction policy: `volatile-lru`, `allkeys-lru`, `noeviction`, etc. Choose based on data criticality; `noeviction` forces writes to fail under pressure.
+
+## Verification
+
+```bash
+# From the app environment (with network access), verify TLS connectivity
+openssl s_client -connect <redis-host>:<port> -servername <redis-host> -brief
+```
+
+## Troubleshooting
+
+- Connection reset/plaintext errors: you’re using `redis://` with TLS enabled — switch to `rediss://`.
+- AUTH failures: ensure app uses the correct user/password if ACLs are enabled.
+
+## Teardown Notes
+
+- Destroy dependents first (ECS app), then the replication group, then the subnet group and SG.
+
+## Check Your Understanding
+
+- When would you choose `noeviction` vs an LRU policy?
+- How does enabling transit encryption change your client connection string?
