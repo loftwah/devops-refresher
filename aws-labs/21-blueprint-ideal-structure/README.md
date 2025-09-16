@@ -389,6 +389,286 @@ pipelines/               # CI/CD (single build → dual deploy)
   github-actions/
 ```
 
+## Exact Contents and Contracts (do not improvise)
+
+This section specifies precisely what goes in each folder, the resource types involved, inputs and outputs, who consumes them, and common pitfalls. It is opinionated to prevent accidental coupling and drift.
+
+modules/network
+
+- Purpose: Provide reusable VPC primitives with tagging for EKS/LB discovery and flow logging.
+- Contains: `aws_vpc`, `aws_subnet` (public/private), `aws_internet_gateway`, `aws_eip` (for NAT), `aws_nat_gateway`, `aws_route_table`, `aws_route`, `aws_route_table_association`, `aws_flow_log`, `aws_cloudwatch_log_group`, `aws_iam_role`, `aws_iam_role_policy` (flow logs).
+- Inputs: `name_prefix`, `cidr_block`, `azs[]`, `public_subnet_cidrs[]`, `private_subnet_cidrs[]`, `tags{}`, `enable_flow_logs`.
+- Outputs: `vpc_id`, `vpc_cidr`, `public_subnet_ids[]`, `private_subnet_ids[]`, `public_route_table_ids[]`, `private_route_table_ids[]`.
+- Consumers: `stacks/shared/vpc`, then read by EKS/ECS stacks, endpoints, security groups.
+- Dependencies: none (foundation).
+- Anti‑patterns: do not embed endpoints, SGs, or cluster creation here; no providers/backends; no remote state reads.
+- Validation: `aws-labs/scripts/validate-vpc.sh`; check EKS/ALB subnet tags (lab 17 shows tag scheme).
+
+modules/iam
+
+- Purpose: Centralize CI roles (CodePipeline/CodeBuild) and shared runtime roles/policies.
+- Contains: `aws_iam_role`, `aws_iam_policy`, `aws_iam_role_policy`, `aws_iam_role_policy_attachment`.
+- Inputs: `project`, `app`, `environment`, policy toggles, allowed actions per stage.
+- Outputs: `codepipeline_role_arn`, `codebuild_build_role_arn`, `codebuild_eks_deploy_role_arn`, `codebuild_ecs_deploy_role_arn`, `ecs_execution_role_arn`, `ecs_task_role_arn`.
+- Consumers: pipelines, ECS/EKS app stacks, aws‑auth mapping for EKS.
+- Dependencies: none; platform/app stacks consume outputs via remote state.
+- Anti‑patterns: do not give CodeBuild wide admin; scope to ECR, ECS UpdateService, and EKS Describe/kubectl namespace as needed. Avoid inline JSON duplication—reuse policy modules.
+- Validation: least‑privilege review and `aws-labs/scripts/validate-iam.sh`.
+
+modules/ecr
+
+- Purpose: Manage ECR repos and lifecycle.
+- Contains: `aws_ecr_repository`, `aws_ecr_lifecycle_policy`, optional `aws_ecr_pull_through_cache_rule`.
+- Inputs: `repositories[]`, `lifecycle_policy` (days, count), `encryption_type`.
+- Outputs: `repo_urls{ name → uri }`.
+- Consumers: pipelines, ECS/EKS app stacks.
+- Anti‑patterns: do not push/pull here; no pipeline logic.
+- Validation: repo exists; lifecycle policy attached; optional pull‑through cache works.
+
+modules/ecs-service
+
+- Purpose: Define an app service on ECS with a task definition and service wiring.
+- Contains: `aws_ecs_task_definition`, `aws_ecs_service` (target group/ALB are external and passed as inputs), environment via SSM/Secrets references.
+- Inputs: `cluster_arn/name`, `task_exec_role_arn`, `task_role_arn`, `container_image`, `cpu`, `memory`, `env_params[]`, `env_secrets[]`, `security_group_ids[]`, `subnet_ids[]`, `target_group_arn` (optional), `desired_count`.
+- Outputs: `task_definition_arn`, `service_name`, `service_arn`.
+- Consumers: `stacks/apps/<app>/ecs`.
+- Anti‑patterns: don’t create ALB/Listener here (belongs in shared app LB or app stack), don’t read remote state; accept inputs.
+- Validation: `aws-labs/scripts/verify-ecs.sh`.
+
+modules/eks-app
+
+- Purpose: Deploy an app to EKS via Helm with immutable image digest and safe rollouts; optionally create IRSA for app‑specific AWS access.
+- Contains: `helm_release`, optional `aws_iam_role` + `aws_iam_policy` for IRSA.
+- Inputs: `cluster_name`, `namespace`, `chart_path`, `values_file`, `image_repository`, `image_tag`, `image_digest`, `build_version`, `certificate_arn`, `host`, `env{}`.
+- Outputs: `release_name`, `service_name`, `ingress_hostname` (if available from values or status).
+- Consumers: `stacks/apps/<app>/eks`, EKS pipeline.
+- Anti‑patterns: do not install platform controllers here (ALB Controller/ExternalDNS belong to platform).
+- Validation: `aws-labs/scripts/validate-eks-app.sh`.
+
+modules/observability
+
+- Purpose: Reusable logging/metrics/alarms/dashboards and optional OTel scaffolding.
+- Contains: `aws_cloudwatch_log_group`, alarms, dashboards; values for OTel.
+- Inputs: `app`, `environment`, SLO targets.
+- Outputs: log group names, dashboard ARNs.
+- Consumers: platform and app stacks.
+- Anti‑patterns: don’t hide per‑app alarms in platform; keep shared vs app‑specific clear.
+
+stacks/shared/vpc
+
+- Purpose: Deploy the VPC using `modules/network`; export IDs/cidrs.
+- Contains: only composition and outputs; no consumers baked in.
+- Outputs: `vpc_id`, `public_subnet_ids[]`, `private_subnet_ids[]`, `vpc_cidr`.
+- Consumers: endpoints, SGs, ECS/EKS.
+- Validation: `validate-vpc.sh`.
+
+stacks/shared/dns
+
+- Purpose: Hosted zone and app DNS; ACM cert issuance/validation.
+- Contains: `aws_route53_zone` (if owned), `aws_acm_certificate`, `aws_acm_certificate_validation`, `aws_route53_record`.
+- Outputs: `zone_id`, `certificate_arn`.
+- Consumers: ECS ALB listeners, EKS Ingress via ALB Controller.
+- Validation: cert ISSUED, records present.
+
+stacks/shared/ecr
+
+- Purpose: Materialize `modules/ecr` for required repos.
+- Outputs: `repo_url` per repo.
+
+stacks/shared/iam
+
+- Purpose: Materialize `modules/iam` and export all CI/runtime role ARNs.
+- Outputs: `codepipeline_role_arn`, `codebuild_*_role_arn`, `ecs_*_role_arn`.
+
+stacks/platform/ecs
+
+- Purpose: ECS cluster, defaults, logging.
+- Contains: `aws_ecs_cluster`, `aws_cloudwatch_log_group`.
+- Outputs: `cluster_name/arn`, default log group.
+
+stacks/platform/eks
+
+- Purpose: EKS control plane, node groups, OIDC, core add‑ons; controllers and IRSA roles.
+- Contains: `aws_eks_cluster`, `aws_eks_node_group`, `aws_iam_openid_connect_provider`, `aws_eks_addon`, controller `helm_release` and IRSA `aws_iam_role`/`aws_iam_policy`.
+- Outputs: `cluster_name`, `oidc_provider_arn/url`, controller role ARNs.
+- Validation: `validate-eks-cluster.sh`, `validate-eks-alb-externaldns.sh`.
+
+stacks/platform/observability
+
+- Purpose: Cross‑cutting telemetry (OTel collector, shared dashboards).
+- Contains: controller Helm releases/values and log/metric resources as needed.
+
+stacks/apps/<app>/ecs
+
+- Purpose: ECS service definition for the app, wired to shared ALB/SG/DNS.
+- Contains: instantiate `modules/ecs-service`; define listener rules in app context if shared ALB is used.
+- Inputs: repo URL, image tag, SGs, subnets, target group/ALB listener ARNs, SSM/Secrets paths.
+- Outputs: service identifiers.
+
+stacks/apps/<app>/eks
+
+- Purpose: Helm release for the app with environment values.
+- Contains: instantiate `modules/eks-app`; values for host, certificate, env, autoscaling.
+- Inputs: repo URL, image digest/tag, cluster name, certificate ARN, host.
+- Outputs: `release_name`, ingress hostname (via output).
+
+environments/<env>
+
+- Purpose: Overlay the deployable stacks with backend and variables.
+- Contains: `backend.hcl` (per‑env bucket/key prefix), `providers.tf` (profile/region), `tags.tfvars`, env‑specific sizing limits.
+- Outputs: none; only inputs into stacks.
+- Anti‑patterns: do not define resources here; do not duplicate module code.
+
+pipelines/codepipeline
+
+- Purpose: Build once, deploy to ECS then EKS; or two pipelines sharing the same source.
+- Contains: `aws_codepipeline`, `aws_codebuild_project`, artifact S3 bucket/policy; inline buildspecs acceptable.
+- Inputs: connection ARN, repo/branch, role ARNs, cluster/service names.
+- Outputs: pipeline name, CodeBuild project names.
+- Guards: EKS waits for ECR tag and deploys via digest; optional manual approval between stages; path guards.
+
+Non‑negotiable boundaries
+
+- Modules: no providers/backends; accept inputs; never read remote state; avoid creating shared/global resources unintentionally.
+- Stacks: compose modules; can read remote state from earlier stacks; own backends in env overlays; produce outputs for downstream.
+- Pipelines: perform CI/CD only; no infra creation beyond artifact buckets and permissions.
+
+Common pitfalls and how we avoided them
+
+- Mutable tags on EKS: we deploy with `image.digest` and set `buildVersion` to force rollouts; see aws-labs/20-cicd-eks-pipeline/README.md:1 and aws-labs/kubernetes/helm/demo-app/values.yml:1
+- SGP on EKS: avoided to prevent pod‑ENI scheduling issues; see notes in aws-labs/19-eks-app.md:1
+- Over‑permissioned CI roles: restricted CodeBuild to ECR/EKS/ECS needs; see aws-labs/06-iam/main.tf:1
+- Hidden env differences: enshrine in env overlays and tfvars; avoid per‑lab one‑offs for production.
+
+## Blueprint Walkthrough: Where Things Live and Why
+
+This section explains, folder by folder, what belongs there, why we split it that way, and how the current labs implement it today. It uses concrete Terraform resources from this repo for examples.
+
+modules/network
+
+- What: Reusable VPC building blocks (VPC, subnets, routing, NAT, flow logs) with tags for EKS and ALB.
+- Why: Network is foundational and widely reused; keeping it pure avoids provider/backend leakage and makes it easy to compose.
+- How (today): Implemented inline in lab 01; would be extracted into a module.
+- Examples: `aws_vpc`, `aws_subnet`, `aws_nat_gateway`, `aws_route_table`, `aws_internet_gateway`, `aws_flow_log`, IAM for flow logs.
+- In repo: aws-labs/01-vpc/main.tf:1
+
+modules/iam
+
+- What: Reusable policies and roles for CI and runtime (ECS exec/task roles, CodeBuild, CodePipeline). EKS IRSA policies collocated in platform/app modules.
+- Why: Centralizing CI/runtime roles reduces drift and simplifies audits; consumers take role ARNs as inputs.
+- How (today): CI and ECS roles in lab 06; EKS IRSA app role in lab 19; LBC/ExternalDNS IRSA in lab 18.
+- Examples: `aws_iam_role`, `aws_iam_policy`, `aws_iam_role_policy`, `aws_iam_role_policy_attachment`.
+- In repo: aws-labs/06-iam/main.tf:1, aws-labs/18-eks-alb-externaldns/main.tf:1, aws-labs/19-eks-app/main.tf:1
+
+modules/ecr
+
+- What: ECR repos, lifecycle policies, and optional pull‑through cache rules.
+- Why: Shared image storage across runtimes; lifecycle keeps costs sane; cache reduces public pulls.
+- How (today): Lab 03.
+- Examples: `aws_ecr_repository`, `aws_ecr_lifecycle_policy`, `aws_ecr_pull_through_cache_rule`.
+- In repo: aws-labs/03-ecr/main.tf:1
+
+modules/ecs-service
+
+- What: App service building block for ECS (task definition, service, linking to ALB target group). Injects runtime config from SSM/Secrets.
+- Why: Encapsulates repeatable service wiring across apps.
+- How (today): Lab 14 (service) + Lab 12 (ALB) + Lab 07 (SGs).
+- Examples: `aws_ecs_task_definition`, `aws_ecs_service` (+ ALB listeners/targets live in shared/app stack), SSM/Secrets env.
+- In repo: aws-labs/14-ecs-service/main.tf:1, aws-labs/12-alb/main.tf:1, aws-labs/07-security-groups/main.tf:1
+
+modules/eks-app
+
+- What: Helm‑based app deployment module (chart, values, IRSA if needed) with immutable image digest and rollout safety.
+- Why: Gives app teams a standard way to deploy with best‑practice flags (`--wait --atomic`, `buildVersion`).
+- How (today): Lab 19 with `helm_release` and optional IRSA for app S3 writes.
+- Examples: `helm_release`, `aws_iam_role` (IRSA), `aws_iam_policy` for S3.
+- In repo: aws-labs/19-eks-app/main.tf:1, aws-labs/kubernetes/helm/demo-app/values.yml:1
+
+modules/observability
+
+- What: Log/metric/trace wiring reusable across stacks (CloudWatch log groups, alarms, dashboards, optional OTel collector values).
+- Why: Consistent signals and alarms across apps/runtimes; lowers toil.
+- How (today): VPC flow logs in lab 01; ECS log groups in lab 13; broader observability covered in lab 16/22 docs.
+- Examples: `aws_cloudwatch_log_group`, metric alarms, dashboards.
+- In repo: aws-labs/01-vpc/main.tf:1, aws-labs/13-ecs-cluster/main.tf:1, aws-labs/22-observability-otel/README.md:1
+
+stacks/shared/vpc
+
+- What: Deployable VPC composed from modules/network.
+- Why: Foundation shared by all platforms/apps.
+- How (today): Lab 01 contains full VPC.
+- In repo: aws-labs/01-vpc/main.tf:1
+
+stacks/shared/dns
+
+- What: Hosted zones/records and ACM certs for service DNS.
+- Why: Keeps DNS and certificates centralized with clear ownership.
+- How (today): Lab 05 sets DNS; Lab 12/18 request ACM and create validation records.
+- Examples: `aws_route53_record`, `aws_acm_certificate`, `aws_acm_certificate_validation`.
+- In repo: aws-labs/05-dns-route53/\*, aws-labs/12-alb/main.tf:1, aws-labs/18-eks-alb-externaldns/main.tf:1
+
+stacks/shared/ecr
+
+- What: ECR repos and policies.
+- How (today): Lab 03.
+- In repo: aws-labs/03-ecr/main.tf:1
+
+stacks/shared/iam
+
+- What: CI and shared roles offered to consumers via remote state outputs.
+- How (today): Lab 06 publishes CodePipeline/CodeBuild role ARNs and ECS task/exec roles.
+- In repo: aws-labs/06-iam/main.tf:1
+
+stacks/platform/ecs
+
+- What: ECS cluster and defaults; optionally capacity providers.
+- Why: Platform layer separate from app services.
+- How (today): Lab 13 creates cluster and a log group.
+- Examples: `aws_ecs_cluster`, `aws_cloudwatch_log_group`.
+- In repo: aws-labs/13-ecs-cluster/main.tf:1
+
+stacks/platform/eks
+
+- What: EKS control plane, node groups, OIDC provider, and platform controllers (ALB Controller, ExternalDNS).
+- Why: Platform‑level concerns (IAM via IRSA, controllers) stay with the platform.
+- How (today): Lab 17 (cluster, node group, OIDC, add‑ons) + Lab 18 (IRSA roles + Helm installs + ACM).
+- Examples: `aws_eks_cluster`, `aws_eks_node_group`, `aws_iam_openid_connect_provider`, `helm_release` for controllers.
+- In repo: aws-labs/17-eks-cluster/main.tf:1, aws-labs/18-eks-alb-externaldns/main.tf:1
+
+stacks/platform/observability
+
+- What: Cross‑cutting controllers or telemetry (e.g., OTEL).
+- How (today): Documented in Lab 22 OTel.
+- In repo: aws-labs/22-observability-otel/README.md:1
+
+stacks/apps/demo-app/ecs
+
+- What: The app’s ECS service bound to shared ALB/SG/DNS.
+- How (today): Lab 14, consuming ECR image and runtime config from SSM/Secrets.
+- Examples: `aws_ecs_task_definition`, `aws_ecs_service`.
+- In repo: aws-labs/14-ecs-service/main.tf:1
+
+stacks/apps/demo-app/eks
+
+- What: The app’s Helm release with values enabling immutable deploys and platform banner.
+- How (today): Lab 19 with `helm_release` and values file; uses cert from Lab 18.
+- In repo: aws-labs/19-eks-app/main.tf:1, aws-labs/kubernetes/helm/demo-app/values.yml:1
+
+environments/<env>
+
+- What: Backend config, provider defaults, and tfvars per environment.
+- Why: Clean separation of env differences (tags, limits, size) without forking stacks.
+- How (today): Labs keep env in variables and shared backend; blueprint moves these into overlays.
+- In repo (concept): aws-labs/README.md:1 (state model and env notes)
+
+pipelines/codepipeline
+
+- What: Single build → deploy to ECS then EKS; or separate pipelines.
+- Why: One artifact for both runtimes; optional approvals and path guards.
+- How (today): Two pipelines—Lab 15 (ECS) and Lab 20 (EKS Helm)—sharing the same repo/branch trigger.
+- Examples: `aws_codepipeline`, `aws_codebuild_project`, artifact S3 bucket and policy.
+- In repo: aws-labs/15-cicd-ecs-pipeline/main.tf:1, aws-labs/20-cicd-eks-pipeline/main.tf:1
+
 Conventions:
 
 - Naming: kebab-case; tag resources with `Project`, `App`, `Environment`, `Owner`, `ManagedBy`.
