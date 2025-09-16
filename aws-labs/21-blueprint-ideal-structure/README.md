@@ -1,6 +1,349 @@
-# Lab 21 – Blueprint: Production-Grade Structure and Pipelines (Theory)
+# Lab 21 – Blueprint: Production-Grade Structure and Pipelines
+
+This is the practical, copy/paste walkthrough that proves the blueprint using the working labs in this repo. It shows exactly how we achieved each goal with commands, file paths, and validators. Deep rationale remains below in the theory sections.
+
+## Hands-on Walkthrough (copy/paste)
+
+Prereqs:
+
+- AWS profile and region set (examples use `devops-sandbox` and `ap-southeast-2`).
+- CodeConnections GitHub connection ready (same one used in Lab 15/20 pipelines).
+- S3 backend initialized via Lab 00.
+
+Tip: Validators live in `aws-labs/scripts`. You can run the orchestrator anytime: `aws-labs/scripts/validate-labs.sh`.
+
+1. Backend (00)
+
+```
+terraform -chdir=aws-labs/00-backend-bootstrap init
+terraform -chdir=aws-labs/00-backend-bootstrap apply -auto-approve
+aws-labs/scripts/validate-backend.sh
+```
+
+2. Shared foundation (01→12)
+
+```
+terraform -chdir=aws-labs/01-vpc apply -auto-approve
+terraform -chdir=aws-labs/02-vpc-endpoints apply -auto-approve   # optional but recommended
+terraform -chdir=aws-labs/03-ecr apply -auto-approve
+terraform -chdir=aws-labs/05-dns-route53 apply -auto-approve
+terraform -chdir=aws-labs/06-iam apply -auto-approve
+terraform -chdir=aws-labs/07-security-groups apply -auto-approve
+terraform -chdir=aws-labs/08-s3 apply -auto-approve
+terraform -chdir=aws-labs/09-rds apply -auto-approve             # optional for demo features
+terraform -chdir=aws-labs/10-elasticache-redis apply -auto-approve # optional for demo features
+terraform -chdir=aws-labs/11-parameter-store apply -auto-approve
+terraform -chdir=aws-labs/12-alb apply -auto-approve              # ECS path ALB
+
+# Spot checks
+aws-labs/scripts/validate-vpc.sh
+aws-labs/scripts/validate-vpc-endpoints.sh      # if applied
+aws-labs/scripts/validate-iam.sh
+aws-labs/scripts/validate-security-groups.sh
+```
+
+3. ECS runtime (13→14)
+
+```
+terraform -chdir=aws-labs/13-ecs-cluster apply -auto-approve
+terraform -chdir=aws-labs/14-ecs-service apply -auto-approve
+aws-labs/scripts/verify-ecs.sh
+```
+
+4. EKS runtime (17→19)
+
+```
+terraform -chdir=aws-labs/17-eks-cluster apply -auto-approve
+aws-labs/scripts/validate-eks-cluster.sh
+
+terraform -chdir=aws-labs/18-eks-alb-externaldns apply -auto-approve \
+  -var oidc_provider_arn=$(cd aws-labs/17-eks-cluster && terraform output -raw oidc_provider_arn)
+aws-labs/scripts/validate-eks-alb-externaldns.sh
+
+# Map the CodeBuild role (from IAM lab) into cluster RBAC
+aws-labs/scripts/eks-map-aws-auth.sh \
+  $(cd aws-labs/06-iam && terraform output -raw codebuild_role_arn) \
+  $(cd aws-labs/17-eks-cluster && terraform output -raw cluster_name) \
+  ap-southeast-2 system:masters
+
+# Deploy the app to EKS via Terraform (uses in-repo Helm chart/values)
+terraform -chdir=aws-labs/19-eks-app init
+terraform -chdir=aws-labs/19-eks-app apply -auto-approve
+terraform -chdir=aws-labs/19-eks-app output -raw ingress_hostname
+aws-labs/scripts/validate-eks-app.sh
+```
+
+5. CI/CD pipelines (15 for ECS, 20 for EKS)
+
+```
+# ECS pipeline
+terraform -chdir=aws-labs/15-cicd-ecs-pipeline apply -auto-approve
+
+# EKS pipeline (Helm deploy from CodeBuild; waits for ECR image tag)
+terraform -chdir=aws-labs/20-cicd-eks-pipeline apply -auto-approve
+```
+
+Notes:
+
+- EKS pipeline: see `aws-labs/20-cicd-eks-pipeline/README.md` for how it waits for the ECR tag, resolves the image digest, and runs `helm upgrade --install` with `--wait --atomic` and `buildVersion`.
+- Manual EKS deploy (for ad‑hoc testing): `PROFILE=devops-sandbox AWS_REGION=ap-southeast-2 aws-labs/scripts/eks-deploy-app.sh`.
+
+6. One build → two deploys (prove it)
+
+Push a commit to the app repo (used by the pipelines). Both pipelines trigger from the same repo/branch:
+
+- ECS pipeline deploys to ECS using the `<git-sha>` tag.
+- EKS pipeline waits for the ECR tag, reads the immutable digest, and deploys to EKS with `image.digest` + `buildVersion`.
+
+Validate:
+
+```
+aws-labs/scripts/validate-cicd.sh
+aws-labs/scripts/validate-eks-cicd.sh
+aws-labs/scripts/verify-ecs.sh
+aws-labs/scripts/validate-eks-app.sh
+```
+
+Where we used things (exact files):
+
+- Helm chart/values used by EKS: `aws-labs/kubernetes/helm/demo-app/values.yml` (sets `DEPLOY_PLATFORM=eks`, `pullPolicy=Always`, accepts `image.digest` + `buildVersion`).
+- EKS pipeline buildspec and Terraform: `aws-labs/20-cicd-eks-pipeline/*`.
+- IAM roles for CodeBuild/CodePipeline: `aws-labs/06-iam/*` (exported via remote state and mapped via `eks-map-aws-auth.sh`).
+- Validators and helpers: `aws-labs/scripts/*` (used throughout in this walkthrough).
+
+---
 
 This lab is the clean, production-grade design we planned: a single build producing one immutable image that deploys to ECS and EKS, with clear separation of modules vs stacks, environment overlays, and centralized IAM. It does not modify existing labs; those remain as incremental concept labs. Use this when you want a cohesive, shippable structure.
+
+---
+
+## Autoscaling, Sizing, and Capacity Planning (theory, actionable)
+
+Scope: the demo app is stateless and currently runs as a single task/pod. Below is the recommended approach to right‑size, set requests/limits, and configure autoscaling in both ECS and EKS. No code here — use this to guide values and policies when you harden the app.
+
+- What: Establish SLOs and load profile
+  - Define latency/error SLOs (e.g., p95 < 200ms, error rate < 1%) and expected RPS patterns (steady vs bursty).
+  - Decide scale bounds (min/max tasks/pods) and disruption budget (max unavailable during deploys).
+
+- Why: Baseline and right‑size the container
+  - Load test incrementally to find the “knee” where latency spikes. Record CPU %, memory RSS, and throughput at that point.
+  - Start with conservative sizing, then tighten:
+    - EKS: set `resources.requests` to typical steady‑state usage and `resources.limits` to 1.5–2x bursts.
+    - ECS: set `cpu` (units) and `memory` (soft) to steady‑state, with `memoryReservation`/`memory` or hard limit allowing short spikes.
+  - Use observations to pick starting points (example for Node.js demo): 200–500m CPU, 256–512Mi memory per replica.
+
+- How (EKS): autoscaling stack
+  - Horizontal Pod Autoscaler (HPA): target 60–70% CPU and/or custom metric (RPS per pod or ALB TargetResponseTime).
+  - Cluster Autoscaler (CA): ensure node groups allow headroom and scale out quickly (scale‑up delay ≤ 1 min) with max nodes sized for burst.
+  - PodDisruptionBudget (PDB): maintain at least 1 replica during voluntary disruptions; set min available accordingly.
+  - Topology: spread replicas across AZs via topologySpreadConstraints or anti‑affinity to improve resilience.
+
+- How (ECS): autoscaling stack
+  - Service Auto Scaling (SAS): target tracking on 60–70% CPU or Memory; optionally step scaling on ALB `RequestCountPerTarget` or custom metrics.
+  - Capacity provider: if EC2, use ASG capacity provider with managed scaling; if Fargate, ensure service min/max tasks fit budget and SLOs.
+  - Deployment safety: enable deployment circuit breaker and rollback on failure; keep minHealthyPercent ≥ 100 for no downtime.
+
+- When: choose the right signal for scaling
+  - CPU/memory are easy but may lag user experience. Prefer a user‑centric metric for scale‑out (e.g., ALB target response time p95, or queue depth/time) with a CPU floor as a backstop.
+  - Queue‑driven (workers): scale on backlog per consumer target (messages per replica) and time‑to‑empty.
+
+- Validate and iterate
+  - After each change, rerun load tests, check p95 latency, saturation (CPU > 80%, memory > 90%), and rollout stability.
+  - Watch costs: scaling policies that oscillate or keep replicas hot can be tuned with cooldowns and less aggressive targets.
+
+Deliverables to update (no code here, just where you’d express it):
+
+- EKS: Helm values `resources.requests/limits`, HPA spec, PDB, topology spread.
+- ECS: Task definition CPU/memory, service autoscaling policies, deployment configuration, capacity provider.
+
+Examples (real‑world, aligned to this repo):
+
+- EKS web API (demo‑app):
+  - What: 2 replicas min, up to 6 under burst; 300m CPU/256Mi requests, 600m/512Mi limits.
+  - Why: p95 latency held under 200ms up to ~80 RPS per pod in load test; CPU saturates before memory.
+  - When: Scale out at 65% CPU OR ALB `TargetResponseTime` > 150ms for 2 minutes; scale in after 10 minutes under 40% CPU and sub‑100ms RT.
+  - How: Set HPA on CPU and external metric; ensure CA has headroom (max nodes +1 above expected peak); add PDB minAvailable=1.
+
+- ECS service (ALB‑fronted):
+  - What: Fargate tasks with 0.5 vCPU, 512Mi each; min 2, max 6.
+  - Why: Matches observed container profile and desired N+1 redundancy.
+  - When: Target tracking at 65% CPU; step scale out +1 task when ALB `RequestCountPerTarget` > 150 for 2 minutes; cool down 5 minutes.
+  - How: Configure Service Auto Scaling with target tracking and one step policy; enable deployment circuit breaker.
+
+Tuning checklist (use to drive values):
+
+- Inputs: expected peak/average RPS, p95 latency target, acceptable error rate, burst duration, rollout disruption budget.
+- Baseline: run a short load test; capture CPU%, memory RSS, throughput at latency knee.
+- Requests/limits: set requests to steady‑state; limits at 1.5–2x; avoid limit‑throttling long GC pauses.
+- Scaling signals: pick user‑centric metric (p95 RT or queue depth) + CPU floor; set sensible cooldowns.
+- Bounds: set min replicas/tasks for N+1 AZ redundancy; cap max to budget and cluster capacity.
+- Resilience: add PDB (EKS), topology spread/anti‑affinity across AZs; ECS minHealthyPercent ≥ 100 for zero‑downtime.
+- Validation: re‑test after changes; confirm rollout stability, no oscillation, and cost within target.
+- Observability: dashboard CPU/mem, RPS, p95 latency, error rate; alarms on saturation and SLO breaches.
+
+---
+
+## S3 Data Management, Macie, and SOC 2 (theory, actionable)
+
+Goal: define how we store, protect, classify, and retain app objects in S3 to meet security and compliance expectations without turning this into a separate lab.
+
+- What: Bucket design and access
+  - One bucket per environment or a single bucket with env prefixes: `/dev`, `/stg`, `/prod`.
+  - Enable Block Public Access and object ownership (bucket owner enforced); disallow ACLs.
+  - Default encryption with SSE‑KMS using a project CMK; restrict KMS key to app roles; rotate per policy.
+  - Access via IAM policies using least privilege principals (app task role, limited admin role). Prefer presigned URLs over wide write permissions.
+
+- Why: Data lifecycle and cost controls
+  - Enable versioning for recovery from deletes/overwrites.
+  - Lifecycle policies: transition non‑current/old objects (e.g., 30d → Standard‑IA, 90d → Glacier Instant/Deep Archive), expire incomplete multipart uploads (7d), and optionally expire temporary objects.
+  - Replication (SRR/CRR): replicate to another region/account for DR or compliance; include replica KMS settings and metrics.
+  - Inventory and Storage Lens: schedule daily inventory reports for auditing; use Storage Lens for usage trends and anomaly detection.
+
+- How: Visibility and detection
+  - CloudTrail data events for S3 Put/Get/Delete on sensitive buckets; aggregate in a security account.
+  - CloudWatch alarms on unusual activity (delete spikes, denied actions, public policy change attempts).
+  - AWS Config rules and Security Hub controls to flag public access, missing encryption, and missing versioning.
+
+- How: Macie for data classification
+  - Scope: target buckets with user‑generated or sensitive data; exclude ephemeral buckets.
+  - Jobs: scheduled sensitive data discovery (weekly/monthly) using managed and custom classifiers for your data types.
+  - Findings: route to Security Hub; triage workflow to remediate (tighten policies, quarantine prefixes, rotate credentials).
+  - Cost management: sample or scope to active prefixes; start narrow and expand.
+
+- When: SOC 2 alignment (selected practices)
+  - Logical access: least privilege for S3 and KMS; periodic access reviews; break‑glass role with MFA and logging.
+  - Data security: encryption at rest (SSE‑KMS) and in transit (HTTPS only policies), KMS key rotation and access boundaries.
+  - Change management: Terraform‑driven infra, PR approvals, pipeline audit trails (CodePipeline/CodeBuild logs retained).
+  - Monitoring: CloudTrail enabled org‑wide, Config rules for S3/KMS/IAM posture, GuardDuty for anomaly detection, Macie for data classification, Security Hub centralization.
+  - Backup/retention: S3 versioning + lifecycle retention; RDS snapshots and tested restores; DR replication where applicable.
+  - Incident response: defined runbooks for data exfiltration, key compromise, and accidental exposure; alerts wired to on‑call.
+
+How we’d use this here (practical stance, no code changes yet):
+
+- Enable S3 versioning and lifecycle transitions for the app bucket(s) from Lab 08; enforce SSE‑KMS with a CMK owned by the account.
+- Turn on Block Public Access at the account and bucket level; add CloudTrail data events for the bucket.
+- Stand up Macie with a weekly classification job scoped to the app prefixes; integrate findings into Security Hub and create basic alerting.
+- Document retention (e.g., 1 year in IA, 7 years in Deep Archive for audit‑relevant objects) and codify as lifecycle when ready.
+
+Examples (real‑world):
+
+- Uploads bucket (staging):
+  - What: `devops-refresher-staging-uploads` with prefixes per service (`/app/avatars/*`).
+  - Why: Versioning protects against accidental overwrites/deletes; lifecycle cuts storage costs.
+  - When: Transition non‑current versions at 30 days to Standard‑IA, current at 90 days to Glacier Instant; expire incomplete multipart uploads after 7 days; keep delete markers 30 days.
+  - How: SSE‑KMS with CMK `alias/devops-refresher-app`; IAM policy grants app task role Put/Get/Delete on `/app/*` only; presigned URLs for clients.
+
+- Compliance bucket (prod evidence):
+  - What: `devops-refresher-prod-evidence` for audit exports and logs.
+  - Why: SOC 2 retention and immutability requirements.
+  - When: Retain for 7 years, CRR to a secondary region/account, object lock (governance mode) if required by policy.
+  - How: Enable object lock at bucket creation; use lifecycle with Glacier Deep Archive after 180 days; CloudTrail data events and Macie scanning monthly.
+
+Data handling checklist:
+
+- Classify data types (PII/PCI/PHI/public) and map to prefixes.
+- Define retention per class (e.g., 30/365/2555 days) and required replication/immutability.
+- Choose encryption model (SSE‑KMS CMK per app vs shared CMK); document key administrators and key users.
+- Block public access, disable ACLs; enforce bucket owner preferred.
+- Enable versioning, lifecycle transitions/expirations, abort incomplete MPU.
+- Enable CloudTrail data events; wire Security Hub/Config controls and alarms.
+- Scope Macie jobs (weekly/monthly) for sensitive prefixes; route findings and triage.
+- Review IAM access quarterly; limit principals to least privilege and prefer presigned URLs for client uploads.
+
+---
+
+## Inline CLI Equivalents (manual runs)
+
+These mirror what the labs and pipelines do, using standard CLIs. Useful for ad‑hoc verification or debugging.
+
+- Build and push image to ECR (Docker or Buildx)
+
+```
+AWS_REGION=ap-southeast-2 \
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text) \
+REPO=demo-node-app \
+TAG=$(git rev-parse --short HEAD)
+
+aws ecr get-login-password --region $AWS_REGION | \
+  docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+
+docker build -t $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$REPO:$TAG demo-node-app
+docker push $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$REPO:$TAG
+
+# Get immutable digest for that tag
+DIGEST=$(aws ecr describe-images \
+  --repository-name $REPO \
+  --image-ids imageTag=$TAG \
+  --query 'imageDetails[0].imageDigest' --output text)
+echo "Digest: $DIGEST"
+```
+
+- EKS: kubectl + helm (same behavior as pipeline)
+
+```
+CLUSTER=$(cd aws-labs/17-eks-cluster && terraform output -raw cluster_name)
+AWS_REGION=ap-southeast-2
+aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER
+
+HELM_CHART=aws-labs/kubernetes/helm/demo-app
+VALUES=aws-labs/kubernetes/helm/demo-app/values.yml
+REPO_URI=$(cd aws-labs/03-ecr && terraform output -raw repo_url)
+CERT_ARN=$(cd aws-labs/18-eks-alb-externaldns && terraform output -raw certificate_arn)
+TAG=$(git rev-parse --short HEAD)
+DIGEST=$(aws ecr describe-images --repository-name demo-node-app \
+  --image-ids imageTag=$TAG --query 'imageDetails[0].imageDigest' --output text)
+
+helm upgrade --install demo-demo-app $HELM_CHART \
+  -n demo --create-namespace \
+  -f $VALUES \
+  --set image.repository=$REPO_URI \
+  --set image.tag=$TAG \
+  --set image.digest=$DIGEST \
+  --set ingress.certificateArn=$CERT_ARN \
+  --set buildVersion=$TAG \
+  --wait --atomic
+
+kubectl -n demo rollout status deploy/demo-demo-app --timeout=180s
+```
+
+- ECS: update service to new image (AWS CLI)
+
+```
+CLUSTER_NAME=$(cd aws-labs/13-ecs-cluster && terraform output -raw cluster_name)
+SERVICE_NAME=$(cd aws-labs/14-ecs-service && terraform output -raw service_name)
+REPO_URI=$(cd aws-labs/03-ecr && terraform output -raw repo_url)
+TAG=$(git rev-parse --short HEAD)
+
+# Get current task definition family
+TD_ARN=$(aws ecs describe-services --cluster $CLUSTER_NAME --services $SERVICE_NAME \
+  --query 'services[0].taskDefinition' --output text)
+FAMILY=${TD_ARN##*/}
+
+# Create a new task definition revision with updated image
+TMP=$(mktemp)
+aws ecs describe-task-definition --task-definition $TD_ARN \
+  --query 'taskDefinition' > $TMP
+
+# Update the container image (assumes first container is the app)
+jq \
+  --arg IMAGE "$REPO_URI:$TAG" \
+  '.containerDefinitions[0].image = $IMAGE | del(.taskDefinitionArn,.revision,.status,.requiresAttributes,.compatibilities,.registeredAt,.registeredBy)' \
+  $TMP > $TMP.new
+
+NEW_TD=$(aws ecs register-task-definition --cli-input-json file://$TMP.new \
+  --query 'taskDefinition.taskDefinitionArn' --output text)
+
+aws ecs update-service --cluster $CLUSTER_NAME --service $SERVICE_NAME \
+  --task-definition $NEW_TD --force-new-deployment
+```
+
+- k9s with EKS
+
+```
+CLUSTER=$(cd aws-labs/17-eks-cluster && terraform output -raw cluster_name)
+aws eks update-kubeconfig --name $CLUSTER --region ap-southeast-2
+k9s -n demo
+```
 
 ## Goals (non-negotiable)
 
