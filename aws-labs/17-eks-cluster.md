@@ -30,9 +30,9 @@ kubectl get nodes
 
 Next labs:
 
-- 18 – EKS ALB + ExternalDNS
-- 19 – EKS External Secrets
-- 20 – EKS App (Helm)
+- 18 – EKS ALB + ExternalDNS (IRSA + ACM + optional Helm installs)
+- 19 – EKS App (Helm via Terraform in this repo)
+- 20 – CI/CD for EKS (CodePipeline + CodeBuild deploying Helm)
 
 ## Validation
 
