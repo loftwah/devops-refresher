@@ -22,15 +22,17 @@ Suggested order (high-level):
 - 16 – Observability (CloudWatch logs, metrics, alarms, dashboard)
 - 17 – EKS Cluster (cluster, node group, OIDC, subnet tags)
 - 18 – EKS ALB + ExternalDNS (IRSA roles + ACM)
-- 19 – (Removed) EKS External Secrets (now optional; app injects env directly)
-- 20 – EKS App (Terraform+Helm; direct env injection; ALB; SG ingress managed)
-- 21 – CI/CD for EKS (CodePipeline + CodeBuild Helm deploy)
+- 19 – EKS App (Terraform+Helm; direct env injection; ALB; SG ingress managed)
+- 20 – CI/CD for EKS (CodePipeline + CodeBuild Helm deploy)
+- 21 – Blueprint: Ideal structure (consolidation guidance)
 - 22 – Observability (OTel + Logs) [optional]
 
 ## Backend and State
 
 - All labs use a shared S3 backend for Terraform state with lockfile-based locking. Do not skip the backend during normal usage. See `aws-labs/00-backend.md` for guidance, troubleshooting, and why remote state is mandatory here.
-- Regional model: Terraform state bucket is in `us-east-1`, while infrastructure (EKS/ECS/ALB/RDS/Redis/etc.) runs in `ap-southeast-2`.
+- Regional model (intentional for this repo): Terraform state bucket is in `us-east-1`, while infrastructure (EKS/ECS/ALB/RDS/Redis/etc.) runs in `ap-southeast-2`.
+  - This is valid: backends can live in a different region from your resources. Many global services (e.g., CloudFront) are also anchored from `us-east-1`, so keeping state there can be acceptable.
+  - Trade‑offs: for smaller teams, a single per‑account state bucket in one region is fine. For stricter residency or lower cross‑region latency, create the bucket in the same region as your infra (e.g., `ap-southeast-2`). We keep `us-east-1` here to illustrate cross‑region backends without changing the labs.
 
 ## Kubernetes Assets
 
@@ -44,8 +46,7 @@ Suggested order (high-level):
 - Notable validators (can be run standalone):
   - `aws-labs/scripts/validate-eks-cluster.sh` – cluster ACTIVE, nodegroup ACTIVE, OIDC present, subnet tags.
   - `aws-labs/scripts/validate-eks-alb-externaldns.sh` – IRSA roles exist, ACM cert ISSUED.
-  - `aws-labs/scripts/validate-eks-external-secrets.sh` – ESO role exists, SA annotation, SecretStores present.
-  - `aws-labs/scripts/validate-eks-app.sh` – Deployment/Service/Ingress/ExternalSecret and HTTPS health.
+  - `aws-labs/scripts/validate-eks-app.sh` – Deployment/Service/Ingress and HTTPS health.
 
 ## EKS Quickstart (17 → 20)
 
@@ -64,12 +65,13 @@ terraform -chdir=aws-labs/17-eks-cluster apply --auto-approve
 terraform -chdir=aws-labs/18-eks-alb-externaldns apply --auto-approve
 ```
 
-3. Lab 20 – App deploy (Terraform):
+3. Lab 19 – App deploy (Terraform):
 
 ```
-terraform -chdir=aws-labs/20-eks-app init
-terraform -chdir=aws-labs/20-eks-app apply --auto-approve
-terraform -chdir=aws-labs/20-eks-app output -raw ingress_hostname
+terraform -chdir=aws-labs/19-eks-app init
+terraform -chdir=aws-labs/19-eks-app apply --auto-approve
+# Verify:
+curl -s https://demo-node-app-eks.aws.deanlofts.xyz/healthz
 ```
 
 Kubernetes basics for verification: see `aws-labs/kubernetes/kubectl.md`.
@@ -80,7 +82,7 @@ Kubernetes basics for verification: see `aws-labs/kubernetes/kubectl.md`.
 - Fault labs: `aws-labs/99-fault-labs.md`
 - Observability (OpenTelemetry + Logs): `aws-labs/22-observability-otel/README.md`
 
-As of now, the core AWS lab flow ends at 20 (EKS App). If we add more, we will continue numbering sequentially. Note: Lab 21 adds a separate EKS pipeline to preserve ordering; both pipelines trigger from the same repo/branch.
+As of now, the core AWS lab flow ends at 20 (EKS CI/CD). If we add more, we will continue numbering sequentially. Note: Lab 20 adds a separate EKS pipeline to preserve ordering; both pipelines trigger from the same repo/branch.
 
 ## VPC Endpoints – Why Optional (but Recommended)?
 
