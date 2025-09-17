@@ -37,6 +37,18 @@ We start with `var.vpc_cidr = 10.64.0.0/16`.
 
 This pattern keeps growth headroom, guarantees no overlap, and mirrors our AZ spread.
 
+### Why not hard-code CIDRs?
+
+- Using indices with `cidrsubnet` keeps the plan deterministic even if you change the parent CIDR or add/remove AZs.
+- It avoids manual math mistakes and overlapping ranges.
+- The AZ keys (`a`, `b`, …) map cleanly to stable slots: public use the first N indices; private start at an offset.
+
+How to pick indices generically:
+
+- Choose child size: for /20s from a /16, `newbits = 4` (2^4 = 16 slots).
+- Reserve `[0..N-1]` for public, `[N..2N-1]` for private (N = number of AZs).
+- Keep keys in `var.azs` aligned with the index maps.
+
 ## AZ Spread
 
 - We use `var.azs = { a = ap-southeast-2a, b = ap-southeast-2b }`.
@@ -51,11 +63,28 @@ This pattern keeps growth headroom, guarantees no overlap, and mirrors our AZ sp
   - Private RT default route: `0.0.0.0/0 → NAT` and associated to both private subnets.
 - Staging keeps cost lower with one NAT. For production, add a NAT per AZ and split private route tables per AZ.
 
+Routing mental model:
+
+- Routes live in the subnet’s associated route table (you don’t configure both “sides” like a physical router).
+- AWS provides an implicit router for intra‑VPC (`local`) traffic, and return paths for accepted traffic are handled by the fabric.
+- A subnet is “public” if its route table has `0.0.0.0/0 → IGW`.
+
 ## Flow Logs (Toggle)
 
 - `var.enable_flow_logs` controls whether we create an IAM role + CloudWatch Log Group + VPC Flow Log.
 - Default is `false` (off). When `true`, logs go to `/aws/vpc/flow-logs/<vpc-id>`.
 - Service principal for the role trust policy is `vpc-flow-logs.amazonaws.com`.
+
+What Flow Logs capture (metadata only):
+
+- Source/destination IPs and ports, protocol, direction, action (ACCEPT/REJECT), status (OK/NODATA/SKIPDATA), byte/packet counts, timestamps, ENI.
+- They do not capture payloads or application‑layer details. DNS queries require Resolver query logs if needed.
+
+Common uses:
+
+- Troubleshoot connectivity (see ACCEPT/REJECT at the ENI).
+- Security monitoring (detect scans/exfiltration) and feed to GuardDuty.
+- Compliance/auditing and traffic analytics (Athena/CloudWatch dashboards).
 
 ## Backend
 
