@@ -47,7 +47,11 @@ Outputs:
 
 ## Controllers
 
-No manual Helm steps are required. This lab installs the AWS Load Balancer Controller and ExternalDNS via Terraform, using the IRSA roles it provisions. Disable with `-var manage_k8s=false` if you want to manage them yourself.
+By default, this lab installs the AWS Load Balancer Controller and ExternalDNS via Terraform, using the IRSA roles it provisions. You can disable controller installs if you prefer to manage them manually:
+
+- `-var manage_lbc=false` to skip installing the Load Balancer Controller
+- `-var manage_externaldns=false` to skip installing ExternalDNS
+- `-var manage_k8s=false` leaves both off (deprecated umbrella toggle)
 
 ## Example Ingress (demo app)
 

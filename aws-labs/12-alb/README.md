@@ -43,7 +43,7 @@ terraform apply -auto-approve
 - Auto‑discovers VPC/public subnets and ALB SG from Labs 01 and 07 when variables are empty.
 - `aws_lb.app` in public subnets with the provided ALB SG.
 - `aws_lb_target_group.app` (HTTP, port `var.target_port`, target_type `ip`) with a `/healthz` health check by default.
-- `aws_acm_certificate.this` for `var.certificate_domain_name` (defaults to `var.record_name`) with DNS validation records in Route 53.
+- `aws_acm_certificate.this` for `var.certificate_domain_name` (defaults to `var.record_name`) with DNS validation records in Route 53. The certificate is validated in the same account/region as the ALB.
 - `aws_lb_listener.https` on 443 using the validated certificate and forwarding to the TG.
 - `aws_lb_listener.http` on 80 redirecting to 443.
 - `aws_route53_record.app_alias` A‑alias pointing the FQDN to the ALB.
