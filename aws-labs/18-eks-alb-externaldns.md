@@ -4,7 +4,7 @@
 
 - Create IRSA roles for AWS Load Balancer Controller and ExternalDNS.
 - Request an ACM certificate for the EKS app domain with DNS validation.
-- Install the controllers via Helm using the IRSA roles.
+- Install the controllers via Helm using the IRSA roles (can be disabled via variables in the Terraform lab if preferred).
 
 ## Steps
 

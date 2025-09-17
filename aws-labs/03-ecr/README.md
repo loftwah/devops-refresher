@@ -129,7 +129,10 @@ Note: ECR Public does not use these interface endpoints; it requires internet/NA
 
 ## CI/CD Handoff
 
-Use `outputs.repository_url` in build pipelines (e.g., CodeBuild) to tag and push. The provided `aws-labs/10-cicd-infra` includes IAM permissions for ECR push/pull.
+Use `outputs.repository_url` in build pipelines (e.g., CodeBuild) to tag and push.
+
+- IAM roles and permissions for CI/CD live in `aws-labs/06-iam` (includes ECR push/pull, logs, and PassRole for ECS deploys).
+- The end-to-end ECS CI/CD example is `aws-labs/15-cicd-ecs-pipeline`, which builds the image, pushes to ECR, and deploys to the ECS service.
 
 ## Lifecycle & Scanning
 

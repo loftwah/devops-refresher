@@ -1,4 +1,4 @@
-# Lab 20 – EKS App (Terraform, zero‑flags)
+# Lab 19 – EKS App (Terraform, zero‑flags)
 
 ## What this lab does
 
@@ -7,7 +7,7 @@
   - S3 bucket, RDS host/port/user/name, Redis host/port from labs 08/09/10 remote state
   - DB_PASS read from Secrets Manager (created by lab 09)
 - Configures ALB Ingress with the ACM cert from lab 18 and adds healthcheck annotations
-- Opens RDS:5432 and Redis:6379 from the VPC CIDR via Terraform‑managed security group rules
+- Injects app IRSA for S3 writes; provides `app_irsa_role_arn` output used by the EKS CI/CD lab
 - Does NOT use Security Groups for Pods (SGP) – avoids pod‑ENI scheduling issues
 
 ## Prereqs
@@ -33,9 +33,8 @@ terraform -chdir=aws-labs/18-eks-alb-externaldns apply --auto-approve
 3. Apply this lab (app)
 
 ```
-terraform -chdir=aws-labs/20-eks-app init
-terraform -chdir=aws-labs/20-eks-app apply --auto-approve
-terraform -chdir=aws-labs/20-eks-app output -raw ingress_hostname
+terraform -chdir=aws-labs/19-eks-app init
+terraform -chdir=aws-labs/19-eks-app apply --auto-approve
 ```
 
 ## Validate

@@ -11,7 +11,7 @@
 ### Tasks
 
 1. Create ALB across public subnets with a dedicated SG allowing 80/443.
-2. Create a target group (HTTP, port 80) with health check path matching your app (e.g., `/health`).
+2. Create a target group (HTTP, port 3000 by default) with health check path matching your app (e.g., `/healthz`).
 3. Create listeners: 80 → redirect 443; 443 → forward to TG (attach ACM cert).
 4. Attach ECS service to the target group; ensure service SG allows traffic from ALB SG.
 

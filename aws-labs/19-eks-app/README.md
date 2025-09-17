@@ -35,7 +35,7 @@ terraform apply -auto-approve
 ## Variables
 
 - `namespace` (default `demo`), `release_name` (default `demo-eks`)
-- `image_repository`, `image_tag` (when set, should be a sha256 image digest; the pipeline sets this)
+- `image_repository`, `image_tag` (when set, should be a sha256 image digest; the pipeline sets this as an immutable digest)
 - `host`, `ingress_enabled`
 - `enable_externalsecrets` (default `false`)
 
@@ -55,5 +55,5 @@ helm -n demo uninstall demo || true
 ## Notes
 
 - This lab expects exactly one Helm release per environment for the app (default: `demo-eks`). Keeping a single release avoids DNS/ALB drift and confusion.
-- External Secrets Operator is optional. Leave `enable_externalsecrets=false` until you install ESO and a ClusterSecretStore.
+- External Secrets Operator is optional. Leave `enable_externalsecrets=false` until you install ESO and a ClusterSecretStore named `aws-parameterstore`.
 ```
