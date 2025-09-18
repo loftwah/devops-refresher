@@ -25,13 +25,13 @@
 
 ## Multiple States (Beyond Bootstrap)
 
-- You can keep many Terraform states in the same S3 bucket by using different backend `key` prefixes per stack/environment.
+- You can keep many Terraform states in the same S3 bucket by using different backend `key` prefixes per stack/environment. The bucket’s region does not have to match your resources’ region.
 - Examples:
   - `bootstrap/global/terraform.tfstate` (this lab)
   - `staging/network/terraform.tfstate`, `staging/ecs/terraform.tfstate`
   - `prod/network/terraform.tfstate`, `prod/ecs/terraform.tfstate`
 - Each stack sets its own `key` in `terraform { backend "s3" { ... } }` and will lock independently.
-- For strict isolation or different KMS keys/policies, use separate buckets; otherwise a single bucket per account/region is standard.
+- For strict isolation or different KMS keys/policies, use separate buckets. A common pattern is one bucket per account/region; however, it’s also valid to centralize state in a single bucket in `us-east-1` across multiple regions. In this repo we intentionally keep state in `us-east-1` while infra runs in `ap-southeast-2` to demonstrate cross‑region backends.
 
 ## Tasks
 

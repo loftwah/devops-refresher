@@ -37,6 +37,122 @@ We start with `var.vpc_cidr = 10.64.0.0/16`.
 
 This pattern keeps growth headroom, guarantees no overlap, and mirrors our AZ spread.
 
+### Why not hard-code CIDRs?
+
+- Using indices with `cidrsubnet` keeps the plan deterministic even if you change the parent CIDR or add/remove AZs.
+- It avoids manual math mistakes and overlapping ranges.
+- The AZ keys (`a`, `b`, …) map cleanly to stable slots: public use the first N indices; private start at an offset.
+
+How to pick indices generically:
+
+- Choose child size: for /20s from a /16, `newbits = 4` (2^4 = 16 slots).
+- Reserve `[0..N-1]` for public, `[N..2N-1]` for private (N = number of AZs).
+- Keep keys in `var.azs` aligned with the index maps.
+
+### CIDR sizing: /16 → /20 (how the math works)
+
+- A CIDR like `10.64.0.0/16` gives you 2^(32−16) = 65,536 IPv4 addresses total.
+- A `/20` subnet is 4 bits smaller than `/16` → each `/20` has 2^(32−20) = 4,096 addresses.
+- `newbits = 4` splits the `/16` into 2^4 = 16 equal `/20` blocks. Indices (netnum) pick which block.
+
+Indices with `cidrsubnet(prefix, newbits, netnum)`:
+
+- With `prefix = 10.64.0.0/16`, `newbits = 4`:
+  - `netnum = 0` → `10.64.0.0/20`
+  - `netnum = 1` → `10.64.16.0/20`
+  - `netnum = 2` → `10.64.32.0/20`
+  - `netnum = 3` → `10.64.48.0/20`
+  - ... up to `netnum = 15`
+
+Rule of thumb for choosing sizes:
+
+- Start with a VPC `/16` for most small/medium environments. It’s roomy and standard.
+- For subnets:
+  - `/20` (4,096 IPs) is generous for general app tiers (ECS/EC2) and future growth.
+  - `/21` (2,048) or `/22` (1,024) can work for cost‑sensitive/smaller tiers.
+  - Avoid very small subnets (e.g., `/27`, `/28`) for app tiers—ENIs, scaling, and EKS pods can exhaust IPs quickly.
+
+Indexing scheme explained:
+
+- Pick `N = number of AZs` (e.g., 2). Reserve first `N` indices for public, next `N` for private:
+  - Public indices: `{ a=0, b=1 }`
+  - Private indices: `{ a=2, b=3 }`
+- This keeps a simple, human‑guessable layout and avoids overlap. If you add a third AZ `c`, extend to `{ c=2 }` for public and `{ c=5 }` for private when using `/20`.
+
+Common layouts (examples):
+
+- 2 AZs (staging): 2 public + 2 private (/20 each); 1 NAT GW total.
+- 3 AZs (prod): 3 public + 3 private (/21 or /20 each); 1 NAT GW per AZ; per‑AZ private route tables.
+- With DB subnets: add 2–3 dedicated private DB subnets (often `/24`–`/26`) that do NOT route to NAT/IGW; used by RDS/Redis.
+
+Pitfalls & gotchas:
+
+- AWS reserves 5 IPs per subnet (first 4, last 1). Very small subnets lose a big fraction to reservation.
+- Cross‑AZ NAT charges: if all private subnets route to one NAT in AZ `a`, traffic from `b` hairpins cross‑AZ (cost/latency). Prefer NAT per AZ for prod.
+- Main route table surprises: explicitly associate every subnet with the intended route table and set the main table deliberately.
+- Public vs private: only public subnets should have `map_public_ip_on_launch = true` and `0.0.0.0/0 → IGW`.
+- IP exhaustion: ECS/EKS scale, ENIs, and EKS CNI (IP‑per‑pod) can burn IPs quickly—size subnets accordingly.
+- DNS: private workloads need VPC DNS hostnames/support enabled for endpoints/NAT flows to work smoothly.
+
+### Step‑by‑step recipe: size and index subnets
+
+1. Pick a VPC CIDR and subnet size
+
+- Example: VPC `/16` (e.g., `10.64.0.0/16`), subnets `/20`.
+- Compute `newbits = child_prefix − parent_prefix` → `20 − 16 = 4`.
+
+2. Decide AZ count and tiers
+
+- Example: 2 AZs (`a`, `b`), tiers: public and private (two tiers).
+
+3. Reserve index ranges per tier
+
+- Let `N = #AZs`.
+- Public indices: `[0..N-1]` → `{ a=0, b=1 }`.
+- Private indices: `[N..2N-1]` → `{ a=2, b=3 }`.
+- (Optional) DB indices: `[2N..3N-1]`.
+
+4. Implement with `cidrsubnet`
+
+- Public: `cidrsubnet(var.vpc_cidr, 4, local.public_subnet_indices[each.key])`.
+- Private: `cidrsubnet(var.vpc_cidr, 4, local.private_subnet_indices[each.key])`.
+
+5. Validate
+
+- Ensure no overlaps and that each subnet’s route table target is correct (IGW for public, NAT for private).
+- For prod, consider NAT per AZ and per‑AZ private route tables.
+
+### ASCII diagram (public/private, IGW/NAT)
+
+```
+             Internet
+                |
+               IGW  <-------------------------------+
+                |                                    |
+         +------+------+
+         |  Public RT  |  0.0.0.0/0 -> IGW
+         +------+------+
+                |                         (Public subnets)
+       +--------+--------+
+       |                 |
+ Public Subnet a     Public Subnet b
+    (NAT GW)             (ALB, etc)
+       |
+       |  egress
+       v
+     NAT GW  -----> IGW (to Internet)
+
+ (Private side)
+         +------+------+
+         | Private RT  |  0.0.0.0/0 -> NAT GW
+         +------+------+
+                |
+       +--------+--------+
+       |                 |
+ Private Subnet a    Private Subnet b
+   (ECS/EC2/etc)      (ECS/EC2/etc)
+```
+
 ## AZ Spread
 
 - We use `var.azs = { a = ap-southeast-2a, b = ap-southeast-2b }`.
@@ -51,11 +167,28 @@ This pattern keeps growth headroom, guarantees no overlap, and mirrors our AZ sp
   - Private RT default route: `0.0.0.0/0 → NAT` and associated to both private subnets.
 - Staging keeps cost lower with one NAT. For production, add a NAT per AZ and split private route tables per AZ.
 
+Routing mental model:
+
+- Routes live in the subnet’s associated route table (you don’t configure both “sides” like a physical router).
+- AWS provides an implicit router for intra‑VPC (`local`) traffic, and return paths for accepted traffic are handled by the fabric.
+- A subnet is “public” if its route table has `0.0.0.0/0 → IGW`.
+
 ## Flow Logs (Toggle)
 
 - `var.enable_flow_logs` controls whether we create an IAM role + CloudWatch Log Group + VPC Flow Log.
 - Default is `false` (off). When `true`, logs go to `/aws/vpc/flow-logs/<vpc-id>`.
 - Service principal for the role trust policy is `vpc-flow-logs.amazonaws.com`.
+
+What Flow Logs capture (metadata only):
+
+- Source/destination IPs and ports, protocol, direction, action (ACCEPT/REJECT), status (OK/NODATA/SKIPDATA), byte/packet counts, timestamps, ENI.
+- They do not capture payloads or application‑layer details. DNS queries require Resolver query logs if needed.
+
+Common uses:
+
+- Troubleshoot connectivity (see ACCEPT/REJECT at the ENI).
+- Security monitoring (detect scans/exfiltration) and feed to GuardDuty.
+- Compliance/auditing and traffic analytics (Athena/CloudWatch dashboards).
 
 ## Backend
 
