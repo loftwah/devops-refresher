@@ -25,7 +25,7 @@ Suggested order (high-level):
 - 19 – EKS App (Terraform+Helm; direct env injection; ALB; SG ingress managed)
 - 20 – CI/CD for EKS (CodePipeline + CodeBuild Helm deploy)
 - 21 – Blueprint: Ideal structure (consolidation guidance)
-- 22 – Observability (OTel + Logs) [optional]
+- 22 – Fault Labs (Troubleshooting on ECS/EKS)
 
 ## Backend and State
 
