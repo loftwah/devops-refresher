@@ -496,11 +496,14 @@ Run a small HTTP API on an Ubuntu EC2 instance, reverse proxy via Nginx, systemd
 1. Build your app image locally
 
 ```bash
-docker build -t myapi:latest .
-docker run -it --rm -p 8080:8080 myapi:latest
+export IMAGE_TAG=$(git rev-parse --short HEAD)
+docker build -t "myapi:${IMAGE_TAG}" .
+docker run -it --rm -p 8080:8080 "myapi:${IMAGE_TAG}"
 curl -fsS http://localhost:8080/health && echo "OK" || echo "FAIL"
 echo $?
 ```
+
+The image tag comes from the current Git commit (see [ADR-008](../decisions/ADR-008-container-image-tagging.md)), so repeating the lab rebuilds the same artifact.
 
 - Exit code `0` means the health check succeeded and the container is serving traffic.
 

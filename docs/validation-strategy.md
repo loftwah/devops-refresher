@@ -36,4 +36,4 @@
 ## Cost & Scale
 
 - Right-size CPU/mem for tasks; scale to zero off-hours in staging.
-- Lifecycle policies to clean old ECR images and CloudWatch logs.
+- Lifecycle policies to keep 10–20 recent ECR SHAs, expire untagged after ~7 days, and trim CloudWatch logs.

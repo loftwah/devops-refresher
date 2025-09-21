@@ -133,7 +133,7 @@ Decisions:
 Gotchas:
 
 - Use `target_type = "ip"` for TGs; enable health-check grace period
-- Keep images immutable; avoid `latest`; tag by commit SHA
+- Keep images immutable; avoid `latest`; tag by commit SHA ([ADR-008](decisions/ADR-008-container-image-tagging.md))
 - Place tasks only in private subnets; block direct internet ingress
 
 ## ECS on EC2 (capacity with ASG)

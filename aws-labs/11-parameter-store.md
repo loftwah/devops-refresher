@@ -194,7 +194,8 @@ spec:
               secretProviderClass: app-config
       containers:
         - name: app
-          image: <account>.dkr.ecr.<region>.amazonaws.com/devops-refresher:latest
+          image: <account>.dkr.ecr.<region>.amazonaws.com/devops-refresher:${IMAGE_TAG}
+          # Replace ${IMAGE_TAG} with the immutable tag you pushed (commit SHA per ADR-008).
           envFrom:
             - secretRef:
                 name: app-env

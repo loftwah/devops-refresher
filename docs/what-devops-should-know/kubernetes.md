@@ -191,11 +191,20 @@ Build and push to ECR:
 ```bash
 export AWS_REGION=ap-southeast-2
 export IMAGE_REPO="<your ECR repo URI>"
+export IMAGE_TAG=$(git rev-parse --short HEAD)
 aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$(dirname "$IMAGE_REPO")"
-docker build -t echo:latest -f docker/Dockerfile .
-docker tag echo:latest "$IMAGE_REPO:latest"
-docker push "$IMAGE_REPO:latest"
+docker build -t "echo:${IMAGE_TAG}" -f docker/Dockerfile .
+docker tag "echo:${IMAGE_TAG}" "$IMAGE_REPO:${IMAGE_TAG}"
+docker push "$IMAGE_REPO:${IMAGE_TAG}"
+
+echo "Image pushed to $IMAGE_REPO:${IMAGE_TAG}"
+
+# Optionally promote a stable alias after the SHA exists in the repo.
+# docker tag "$IMAGE_REPO:${IMAGE_TAG}" "$IMAGE_REPO:staging"
+# docker push "$IMAGE_REPO:staging"
 ```
+
+Using the Git commit as the tag (per [ADR-008](../decisions/ADR-008-container-image-tagging.md)) keeps the deployment manifest reproducible and makes rollbacks straightforward.
 
 ### Kubernetes manifests for EKS
 
@@ -213,7 +222,8 @@ spec:
       serviceAccountName: echo-sa
       containers:
         - name: echo
-          image: 123456789012.dkr.ecr.ap-southeast-2.amazonaws.com/echo:latest
+          image: "123456789012.dkr.ecr.ap-southeast-2.amazonaws.com/echo:${IMAGE_TAG}"
+          # Replace ${IMAGE_TAG} with the immutable tag you pushed (see ADR-008).
           ports: [{ containerPort: 8080 }]
           readinessProbe:
             {
