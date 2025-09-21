@@ -35,7 +35,7 @@ Defaults reflect the app name:
 
 - `region` (string): AWS region (default `ap-southeast-2`)
 - `repo_name` (string): ECR repo name (default `demo-node-app`)
-- `image_tag_mutability` (string): `MUTABLE|IMMUTABLE` (default `MUTABLE`)
+- `image_tag_mutability` (string): `MUTABLE|IMMUTABLE` (default `IMMUTABLE`)
 - `lifecycle_keep_last` (number): keep last N images (default `10`)
 - `force_delete` (bool): allow repo deletion with images (default `true` for labs)
 - `enable_kms_encryption` (bool) + `kms_key_arn` (string): optional CMK
@@ -71,14 +71,14 @@ aws ecr get-login-password --region $AWS_REGION --profile $AWS_PROFILE \
 
 REPO=$(aws ecr describe-repositories --repository-names demo-node-app --profile $AWS_PROFILE --region $AWS_REGION --query 'repositories[0].repositoryUri' --output text)
 
-docker build -t demo-node-app:staging .
-docker tag demo-node-app:staging "$REPO:staging"
-docker push "$REPO:staging"
-
-# Optional immutable tag (git SHA)
 GIT_SHA=$(git rev-parse --short HEAD)
-docker tag demo-node-app:staging "$REPO:$GIT_SHA"
-docker push "$REPO:$GIT_SHA"
+docker build -t "demo-node-app:${GIT_SHA}" .
+docker tag "demo-node-app:${GIT_SHA}" "$REPO:${GIT_SHA}"
+docker push "$REPO:${GIT_SHA}"
+
+# Optional environment alias (points at the SHA you just pushed)
+docker tag "demo-node-app:${GIT_SHA}" "$REPO:staging"
+docker push "$REPO:staging"
 ```
 
 Validate:
@@ -137,7 +137,8 @@ Use `outputs.repository_url` in build pipelines (e.g., CodeBuild) to tag and pus
 ## Lifecycle & Scanning
 
 - On‑push scanning is enabled by default.
-- Lifecycle policy keeps the last `lifecycle_keep_last` images and effectively preserves the `staging` tag.
+- Lifecycle policy keeps the last `lifecycle_keep_last` images (default 10) while whitelisting `staging`.
+- For production, consider a second rule to expire untagged images after 7 days and increase `lifecycle_keep_last` (20–30) if you need a longer rollback window.
 
 ## Why It Matters
 

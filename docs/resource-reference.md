@@ -104,7 +104,7 @@ Example IP scheme (leaves room to grow)
 ## ECR
 
 - Required: Repo per app; immutable tags recommended; scan on push.
-- Optional: Lifecycle policies (expire old tags); encryption with KMS.
+- Recommended: Lifecycle policy keeps last 10–20 commit tags and expires untagged images after ~7 days; optional KMS CMK for encryption.
 - Validate: Push/pull; image tag resolves in deploy logs.
 
 ## IAM
