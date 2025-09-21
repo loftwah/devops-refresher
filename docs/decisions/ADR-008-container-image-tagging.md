@@ -36,3 +36,19 @@ We tag every container image with an immutable identifier (Git commit SHA or pro
 - We document local workflow: developers can `docker tag repo/app:<sha> repo/app:dev-local` if they need a floating alias on their machine, but they never push it upstream.
 - Existing environments should be audited to ensure services reference immutable tags. Where `latest` is still in use, plan a redeploy with a pinned tag.
 - This ADR supersedes ad-hoc guidance; `docs/aws-terraform-patterns.md` and related runbooks now link back here for rationale.
+
+## When `latest` Is Acceptable (And When It Is Not)
+
+Safe enough:
+
+- **Local developer loops** where the image never leaves your laptop. `latest` as a temporary alias is fine so long as it is not pushed to a shared registry.
+- **Third-party images you do not own** (for example `redis:latest` in a quickstart). Treat it like a convenience pointer; prefer pinning a digest or version for production, but grabbing `latest` interactively is an acceptable shortcut while exploring.
+- **Ephemeral throwaway environments** (demo sandboxes, one-off workshops) provided you understand that every restart may pull a different upstream image.
+
+Still avoid:
+
+- **CI/CD pipelines, Terraform, Helm, or ECS/Kubernetes manifests** for first-party services. Use commit SHAs, semver, or digests so deployments are reproducible.
+- **Promoted environments** (staging, prod, long-lived test). Rollbacks and drift detection break when tags float.
+- **Security-conscious contexts** where you need a scan trail. Immutable tags (and ideally digests) are the only way to prove which code is running.
+
+Rule of thumb: `latest` is a human convenience but not an automation contract. If the image ends up in ECR or is referenced by infrastructure code, give it an immutable name first. For upstream open-source images you consume, periodically convert `latest` to a pinned version/digest once you have validated it.

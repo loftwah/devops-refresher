@@ -338,7 +338,7 @@ CodeBuild variable patterns (buildspec)
 version: 0.2
 env:
   variables:
-    IMAGE_TAG: latest
+    IMAGE_TAG: ""  # derive from commit when unset
   parameter-store:
     NPM_TOKEN: "/devops-refresher/staging/app/NPM_TOKEN"  # example
 phases:
@@ -346,6 +346,7 @@ phases:
     commands:
       - export DOCKER_BUILDKIT=1
       - REPO_URI=$(aws ecr describe-repositories --repository-names ${ECR_REPO_NAME} --query 'repositories[0].repositoryUri' --output text)
+      - IMAGE_TAG=${IMAGE_TAG:-$(echo ${CODEBUILD_RESOLVED_SOURCE_VERSION} | cut -c1-7)}
   build:
     commands:
       - echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc    # if needed
