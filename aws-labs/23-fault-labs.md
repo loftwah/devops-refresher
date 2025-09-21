@@ -1,4 +1,4 @@
-# Lab 22 – Fault Lab: EKS 503 (ALB) caused by app CrashLoopBackOff
+# Fault Lab: EKS 503 (ALB) caused by app CrashLoopBackOff
 
 ## Objectives
 
@@ -162,7 +162,6 @@ curl -sS -D - https://demo-node-app-eks.aws.deanlofts.xyz/healthz -o /dev/null
 
 ## Cleanup / Final State
 
-- Old doc `99-fault-labs.md` removed; Fault Lab is now `22-fault-labs.md`.
 - EKS app now receives DB/Redis env from Secret `demo-node-app-env`.
 - RDS allows ingress from the EKS cluster SG; tighten further if desired.
 - Ingress healthcheck set to `/healthz`; ALB should show healthy targets.
