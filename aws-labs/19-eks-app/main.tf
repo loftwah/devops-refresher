@@ -118,7 +118,8 @@ resource "aws_iam_policy" "app_s3_write" {
         Effect = "Allow",
         Action = [
           "s3:PutObject",
-          "s3:GetObject"
+          "s3:GetObject",
+          "s3:DeleteObject"
         ],
         Resource = [
           "arn:aws:s3:::${local.s3_bucket}/app/*"
@@ -153,12 +154,14 @@ resource "helm_release" "app" {
   timeout      = 600
   force_update = true
   wait         = false
+  depends_on   = [kubernetes_secret_v1.app_env]
 
   values = [
     yamlencode({
       image = {
         repository = var.image_repository
         digest     = var.image_tag # when set to a sha256 digest; pipeline sets this value
+        tag        = "staging"
         pullPolicy = "Always"
       }
       service = {
@@ -184,6 +187,8 @@ resource "helm_release" "app" {
           "eks.amazonaws.com/role-arn" = aws_iam_role.app_irsa.arn
         }
       }
+      # Provide env via a referenced Secret to avoid array merge quirks
+      envSecretName = "demo-node-app-env"
       externalSecrets = var.enable_externalsecrets ? {
         enabled          = true
         targetSecretName = "demo-app-env"
@@ -198,26 +203,38 @@ resource "helm_release" "app" {
         storeRef         = null
         dataFrom         = []
       }
-      env = (
-        var.enable_externalsecrets ? [
-          { name = "DEPLOY_PLATFORM", value = "eks" }
-          ] : [
-          { name = "DEPLOY_PLATFORM", value = "eks" },
-          { name = "APP_ENV", value = "staging" },
-          { name = "PORT", value = "3000" },
-          { name = "S3_BUCKET", value = tostring(local.s3_bucket) },
-          { name = "DB_HOST", value = tostring(local.db_host) },
-          { name = "DB_PORT", value = tostring(local.db_port) },
-          { name = "DB_USER", value = tostring(local.db_user) },
-          { name = "DB_NAME", value = tostring(local.db_name) },
-          { name = "DB_PASS", value = try(one(data.aws_secretsmanager_secret_version.db_pass[*].secret_string), "") },
-          { name = "DB_SSL", value = "required" },
-          { name = "REDIS_HOST", value = tostring(local.redis_host) },
-          { name = "REDIS_PORT", value = tostring(coalesce(local.redis_port, 6379)) },
-          { name = "REDIS_TLS", value = "true" }
-        ]
-      )
+      env = [
+        { name = "DEPLOY_PLATFORM", value = "eks" }
+      ]
     })
   ]
+}
+
+# Provide application environment via a Kubernetes Secret referenced by envFrom
+resource "kubernetes_secret_v1" "app_env" {
+  metadata {
+    name      = "demo-node-app-env"
+    namespace = var.namespace
+    labels = {
+      app = "demo-node-app"
+    }
+  }
+  type = "Opaque"
+  data = {
+    APP_ENV   = "staging"
+    PORT      = "3000"
+    S3_BUCKET = tostring(local.s3_bucket)
+
+    DB_HOST = tostring(local.db_host)
+    DB_PORT = tostring(local.db_port)
+    DB_USER = tostring(local.db_user)
+    DB_NAME = tostring(local.db_name)
+    DB_PASS = try(one(data.aws_secretsmanager_secret_version.db_pass[*].secret_string), "")
+    DB_SSL  = "required"
+
+    REDIS_HOST = tostring(local.redis_host)
+    REDIS_PORT = tostring(coalesce(local.redis_port, 6379))
+    REDIS_TLS  = "true"
+  }
 }
 
